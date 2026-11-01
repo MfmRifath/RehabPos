@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,7 @@ class AppState:
     db: Engine
     exercises: dict[str, ExerciseConfig]
     jobs: JobManager | None = None
+    live_connections: Counter[str] = field(default_factory=Counter)
 
     @cached_property
     def torch_device(self) -> str:

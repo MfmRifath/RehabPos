@@ -14,6 +14,7 @@ from rehabpose import __version__
 from rehabpose.api import ws
 from rehabpose.api.db import init_db, make_engine
 from rehabpose.api.jobs import EstimatorFactory, JobManager
+from rehabpose.api.privacy import purge_expired_outputs
 from rehabpose.api.routes import meta, sessions, users, videos
 from rehabpose.api.state import AppState
 from rehabpose.core.exercise import load_exercises
@@ -30,6 +31,7 @@ def create_app(
     db = make_engine(settings.db_url)
     init_db(db)
     state = AppState(settings=settings, db=db, exercises=load_exercises(settings.exercises_dir))
+    purge_expired_outputs(db, settings.data_dir, settings.session_retention_days)
 
     def default_factory() -> object:
         from rehabpose.pose import create_estimator

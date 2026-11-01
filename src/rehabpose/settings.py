@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     frontend_dist: Path = Path("frontend/dist")
     max_upload_mb: int = Field(default=500, gt=0)
+    session_retention_days: int | None = Field(default=None, ge=0)  # None: keep until deleted
 
     @model_validator(mode="after")
     def _absolute_paths(self) -> Settings:

@@ -34,8 +34,11 @@ In code it is `rehabpose.DISCLAIMER`. Tests check that README, this document and
 - **Pseudonymous users:** `user.id` is random, and `display_name` is optional and free text. No email
   or real-name requirement.
 - **Upload mode:** uploaded videos are stored under `data/` only while the job runs. The annotated
-  output is kept until the user deletes the session. A retention setting arrives in phase 8.
-- **Data subject rights:** export (JSON) and delete-with-cascade endpoints (FR-35).
+  output is kept until the session or user is deleted. Setting `session_retention_days` removes
+  session files that much older when the server starts; session rows and reports stay.
+- **Data subject rights:** export (JSON) and delete-with-cascade endpoints (FR-35), both on the
+  progress page. Deleting a user also removes their session files. Copies a person has exported or
+  backups of `data/` are outside the app's reach.
 - **Logs** contain no landmarks or video, only session ids, codes and timings.
 - **No third-party requests in production:** the production frontend ships a same-origin
   Content-Security-Policy ([ADR 0003](adr/0003-csp-blocks-third-party-requests.md)). This was

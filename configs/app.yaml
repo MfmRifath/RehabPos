@@ -8,5 +8,6 @@ models_dir: data/models
 exercises_dir: configs/exercises
 db_url: sqlite:///data/rehabpose.db
 pose_model: full # lite | full | heavy (MediaPipe pose_landmarker_*.task)
+session_retention_days: null # days to keep session files (annotated video, landmarks); null = until deleted
 cors_origins:
   - http://localhost:5173

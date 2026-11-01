@@ -86,6 +86,8 @@ interface Profile {
   disclaimerAccepted: boolean;
 }
 
+export const newUserId = (): string => `u-${Math.random().toString(36).slice(2, 10)}`;
+
 function loadProfile(): Profile {
   try {
     const raw = localStorage.getItem(KEY);
@@ -93,8 +95,7 @@ function loadProfile(): Profile {
   } catch {
     /* storage unavailable: fall through */
   }
-  const id = `u-${Math.random().toString(36).slice(2, 10)}`;
-  return { userId: id, disclaimerAccepted: false };
+  return { userId: newUserId(), disclaimerAccepted: false };
 }
 
 function saveProfile(p: Profile): void {

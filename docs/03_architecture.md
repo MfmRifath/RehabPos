@@ -196,14 +196,19 @@ All paths are prefixed with `/api` unless noted. JSON bodies are validated by py
 | POST | `/api/sessions/{sid}/end` | Close session, compute summary |
 | GET | `/api/sessions/{sid}/report.json` | Structured report |
 | GET | `/api/sessions/{sid}/report.pdf` | PDF report (with disclaimer) |
-| GET | `/api/users/{uid}/progress` | Aggregations: ROM trend, reps, quality, streaks, badges |
+| GET | `/api/users/{uid}/progress` | Totals, streaks, badges, per-exercise daily series. `?tz_offset_minutes=` sets the day boundary |
+| GET | `/api/users/{uid}/export` | All stored data about a user as a JSON download |
+| DELETE | `/api/users/{uid}` | Delete a user, their sessions, reps, events, targets and files |
+| DELETE | `/api/sessions/{sid}` | Delete one session and its files |
 | POST | `/api/videos` | Upload video (multipart) → `job_id`, `sid` |
 | GET | `/api/jobs/{job_id}` | Job status / progress / result links |
 | WS | `/ws/session/{sid}` | Live landmarks → feedback (protocol v1) |
 | GET | `/api/sessions/{sid}/annotated.mp4` | Annotated video of an upload session (after its job is done) |
 | WS | `/ws/frames/{sid}` | Optional: JPEG frames for server-side pose ablations |
 
-Phase 8 adds `GET /api/users/{uid}/export` and `DELETE /api/users/{uid}` (FR-35).
+Deletes return 409 while a live connection or an upload job is using the data.
+Progress rules: only ended sessions count; a day counts towards streaks only if it has at least one
+rep; daily ROM and quality are weighted by rep count; badges stay earned once earned.
 Status codes: 201 for session creation and 202 for an accepted upload. 404 means an unknown
 session, user, exercise or job. 415 is a non-video upload, 413 an upload over `max_upload_mb`
 (500 by default), and 422 a validation error (for example a view the exercise doesn't allow, or a
@@ -213,7 +218,8 @@ for the phase 7 pose-backend ablations.
 **Upload jobs** run one at a time in a thread pool, using Python MediaPipe on the CPU. They live
 in memory and do not survive a restart. The **raw uploaded video is deleted when its job
 finishes**, whether it succeeds or fails (docs/09 §4). Landmarks, the annotated video and the CSV/JSON
-outputs are kept under `data/sessions/<sid>/` until the session is deleted (phase 8).
+outputs are kept under `data/sessions/<sid>/` until the session or user is deleted, or until
+`session_retention_days` passes (checked when the server starts).
 
 ## 7. WebSocket protocol v1
 These are pydantic models in `rehabpose/api/schemas.py`, mirrored as TypeScript types in

@@ -96,3 +96,44 @@ test("production page ships a same-origin-only Content-Security-Policy", async (
   );
   expect(outcome).toBe("blocked");
 });
+
+test("progress shows server badges; delete asks first and resets the user", async ({ page }) => {
+  const series = [{ date: "2026-03-10", sessions: 2, reps: 60, mean_rom: 140, quality: 0.8 }];
+  const progress = {
+    user_id: "u-x", today: "2026-03-10",
+    overall: { sessions: 2, total_reps: 60, active_days: 1, current_streak: 1, longest_streak: 1 },
+    badges: [
+      { id: "first_50", label: "First 50 reps", earned: true, detail: "60 / 50 reps" },
+      { id: "streak_7", label: "7-day streak", earned: false, detail: "longest streak 1 days, current 1" },
+    ],
+    exercises: { shoulder_flexion: { sessions: 2, total_reps: 60, best_mean_rom: 140, rom_personal_best: { value: 141, date: "2026-03-10" }, series } },
+  };
+  const urls: string[] = [];
+  const deletes: string[] = [];
+  await page.route("**/api/exercises", (r) => r.fulfill({ json: [exercise] }));
+  await page.route("**/api/users/**", (r) => {
+    urls.push(r.request().url());
+    if (r.request().method() === "DELETE") {
+      deletes.push(r.request().url());
+      return r.fulfill({ json: { user_id: "u-x", deleted: { sessions: 2, reps: 60 } } });
+    }
+    return r.fulfill({ json: progress });
+  });
+  await page.goto("/#/progress");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.getByTestId("overall")).toContainText("60 reps in 2 sessions");
+  await expect(page.getByText("🏅 First 50 reps")).toBeVisible();
+  await expect(page.getByText("○ 7-day streak")).toBeVisible();
+  await expect(page.getByText("best session 141° on 2026-03-10")).toBeVisible();
+  expect(urls[0]).toContain("tz_offset_minutes=");
+
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByTestId("delete-data").click();
+  expect(deletes).toEqual([]); // cancelled: nothing deleted
+
+  const before = await page.evaluate(() => localStorage.getItem("rehabpose.profile.v1"));
+  page.once("dialog", (d) => d.accept());
+  await page.getByTestId("delete-data").click();
+  await expect.poll(() => deletes.length).toBe(1);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("rehabpose.profile.v1"))).not.toBe(before);
+});

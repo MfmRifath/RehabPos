@@ -73,6 +73,11 @@ class JobManager:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def active_session_ids(self) -> set[str]:
+        """Sessions with a queued or running job."""
+        with self._lock:
+            return {j.session_id for j in self._jobs.values() if j.status in ("queued", "running")}
+
     def shutdown(self, wait: bool = True) -> None:
         """Stop the worker pool."""
         self._executor.shutdown(wait=wait)

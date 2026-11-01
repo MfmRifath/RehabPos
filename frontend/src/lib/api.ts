@@ -57,14 +57,25 @@ export interface Job {
   result: Record<string, string>;
 }
 
+export interface Badge {
+  id: string;
+  label: string;
+  earned: boolean;
+  detail: string;
+}
+
 export interface Progress {
   user_id: string;
+  today: string;
+  overall: { sessions: number; total_reps: number; active_days: number; current_streak: number; longest_streak: number };
+  badges: Badge[];
   exercises: Record<
     string,
     {
       sessions: number;
       total_reps: number;
       best_mean_rom: number | null;
+      rom_personal_best: { value: number; date: string } | null;
       series: { date: string; sessions: number; reps: number; mean_rom: number | null; quality: number | null }[];
     }
   >;
@@ -116,7 +127,11 @@ export const api = {
   report: (sid: string) => req<Report>(`/api/sessions/${sid}/report.json`),
   targets: (uid: string) => req<{ user_id: string; targets: Target[] }>(`/api/users/${uid}/targets`),
   putTargets: (uid: string, t: Target[]) => req<{ user_id: string; targets: Target[] }>(`/api/users/${uid}/targets`, json(t, "PUT")),
-  progress: (uid: string) => req<Progress>(`/api/users/${uid}/progress`),
+  /** Days are counted in the browser's time zone. */
+  progress: (uid: string, tzOffsetMinutes = -new Date().getTimezoneOffset()) =>
+    req<Progress>(`/api/users/${uid}/progress?tz_offset_minutes=${tzOffsetMinutes}`),
+  exportUrl: (uid: string) => `/api/users/${uid}/export`,
+  deleteUser: (uid: string) => req<{ user_id: string; deleted: Record<string, number> }>(`/api/users/${uid}`, { method: "DELETE" }),
   uploadVideo: (form: FormData) => req<{ job_id: string; session_id: string }>("/api/videos", { method: "POST", body: form }),
   job: (id: string) => req<Job>(`/api/jobs/${id}`),
 };

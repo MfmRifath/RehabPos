@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, type Progress } from "../lib/api";
-import { badges, currentStreak, longestStreak } from "../lib/badges";
-import { useApp } from "../store/app";
+import { newUserId, useApp } from "../store/app";
 import { useExercises } from "../useExercises";
 
 const axis = { stroke: "var(--ink-muted)", fontSize: 12 };
@@ -12,8 +11,34 @@ const tip = {
   cursor: { stroke: "var(--ink-muted)", fill: "var(--surface-2)" },
 };
 
+function YourData({ userId, onDeleted }: { userId: string; onDeleted: () => void }) {
+  const [message, setMessage] = useState<string | null>(null);
+  const remove = async () => {
+    if (!window.confirm(`Permanently delete all data for ${userId}? This cannot be undone.`)) return;
+    try {
+      const r = await api.deleteUser(userId);
+      setMessage(`Deleted ${r.deleted.sessions ?? 0} sessions and ${r.deleted.reps ?? 0} reps.`);
+      onDeleted();
+    } catch (e) {
+      setMessage(`Not deleted: ${String(e)}`);
+    }
+  };
+  return (
+    <div className="card" style={{ marginTop: 16 }} data-testid="your-data">
+      <h2 style={{ marginTop: 0 }}>Your data</h2>
+      <p className="muted">Everything is stored on this RehabPose server under a pseudonymous id ({userId}).</p>
+      <div className="row">
+        <a href={api.exportUrl(userId)} download>Export as JSON</a>
+        <button onClick={remove} data-testid="delete-data">Delete all my data</button>
+        {message && <span role="status">{message}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function ProgressPage() {
   const userId = useApp((s) => s.profile.userId);
+  const setUserId = useApp((s) => s.setUserId);
   const { exercises } = useExercises();
   const [data, setData] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,36 +46,48 @@ export function ProgressPage() {
     api
       .progress(userId)
       .then(setData)
-      .catch((e: unknown) => setError(String(e).includes("404") ? "No sessions yet." : String(e)));
+      .catch((e: unknown) => setError(String(e).includes("404") || (e as { status?: number }).status === 404 ? "No sessions yet." : String(e)));
   }, [userId]);
 
   if (error) return <section><h1>Progress</h1><p className="muted">{error}</p></section>;
   if (!data) return <p className="muted">Loading…</p>;
-  const today = new Date().toISOString().slice(0, 10);
+  const yours = (
+    <YourData
+      userId={userId}
+      onDeleted={() => {
+        setData(null);
+        setUserId(newUserId());
+      }}
+    />
+  );
   const entries = Object.entries(data.exercises);
-  if (entries.length === 0) return <section><h1>Progress</h1><p className="muted">No completed sessions yet.</p></section>;
+  if (entries.length === 0) return <section><h1>Progress</h1><p className="muted">No completed sessions yet.</p>{yours}</section>;
+  const o = data.overall;
 
   return (
     <section>
       <h1>Progress</h1>
+      <p data-testid="overall">
+        {o.total_reps} reps in {o.sessions} sessions · streak {o.current_streak} days (longest {o.longest_streak})
+      </p>
+      <div className="row" aria-label="Badges" style={{ marginBottom: 16 }}>
+        {data.badges.map((b) => (
+          <span key={b.id} className={`badge ${b.earned ? "earned" : ""}`} title={b.detail}>
+            {b.earned ? "🏅" : "○"} {b.label}
+          </span>
+        ))}
+      </div>
       {entries.map(([eid, p]) => {
         const ex = exercises.find((e) => e.id === eid);
         const unit = ex?.unit === "deg" ? "°" : "";
-        const days = p.series.map((d) => d.date);
         const series = p.series.map((d) => ({ ...d, qualityPct: d.quality === null ? null : Math.round(d.quality * 100) }));
         return (
           <div className="card" key={eid} style={{ marginBottom: 16 }}>
             <h2 style={{ marginTop: 0 }}>{ex?.name ?? eid}</h2>
             <p className="muted">
-              {p.sessions} sessions · {p.total_reps} reps · streak {currentStreak(days, today)} days (longest {longestStreak(days)})
+              {p.sessions} sessions · {p.total_reps} reps
+              {p.rom_personal_best && ` · best session ${p.rom_personal_best.value}${unit} on ${p.rom_personal_best.date}`}
             </p>
-            <div className="row" aria-label="Badges">
-              {badges(p.series, today).map((b) => (
-                <span key={b.id} className={`badge ${b.earned ? "earned" : ""}`} title={b.detail}>
-                  {b.earned ? "🏅" : "○"} {b.label}
-                </span>
-              ))}
-            </div>
             <h3>Mean peak ROM per day ({unit || "ratio"})</h3>
             <div className="chart">
               <ResponsiveContainer>
@@ -102,6 +139,7 @@ export function ProgressPage() {
           </div>
         );
       })}
+      {yours}
     </section>
   );
 }

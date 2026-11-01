@@ -11,8 +11,8 @@
 | 5 | Backend | done | phase-5 |
 | 6 | Frontend | done (owner manual check pending) | phase-6 |
 | 7 | ML training & evaluation (MPS) | done on SYNTHETIC data only | phase-7 |
-| 8 | Reports, progress, gamification polish | next | |
-| 9 | Quality, CI, Docker, benchmarks | todo | |
+| 8 | Reports, progress, gamification polish | done | phase-8 |
+| 9 | Quality, CI, Docker, benchmarks | next | |
 | 10 | Final docs | todo | |
 | 11 | Core ML / iOS (optional, only on request) | not requested | |
 
@@ -33,6 +33,13 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 8 tasks
+- [x] api/progress.py: totals, rep-weighted daily series, streaks, badges, caller's time zone
+- [x] api/privacy.py + routes: export JSON, delete user and session (409 while in use), retention
+- [x] final report: flags timeline, active time, labelled DTW similarity and its reference, banner
+- [x] sample at reports/samples/ (SYNTHETIC; `uv run python scripts/make_sample_report.py`)
+- [x] frontend uses server progress and badges; export and delete controls on the progress page
 
 ## Phase 7 results: SYNTHETIC, not results
 All runs at commit b48c5a1 (16 subjects; test subjects S03, S04, S12; 5 folds x 3 seeds).
@@ -207,6 +214,10 @@ NOT YET MEASURED. Live browser FPS: NOT YET MEASURED.
   (seed 0) from 0.229 to 0.620. It remains the weakest model; the remaining cause is unknown.
 - 2026-11-01 (P7): Run long jobs under `caffeinate -i` with the lid open. Mac sleep stretched a run of
   roughly 8 minutes to 82 minutes.
+- 2026-11-01 (P8): A streak day needs at least one rep. Badges stay earned. ROM personal best compares
+  session mean ROM within an exercise; a first session cannot earn it.
+- 2026-11-01 (P8): Added DELETE /api/sessions/{sid} (docs/09 promised deleting a session) and
+  `session_retention_days` (default null: keep until deleted). pypdf added to the dev group to test PDF text.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -214,7 +225,7 @@ mediapipe 1.2.0 (Tasks API `PoseLandmarker` present), torch 2.15.0, numpy 2.5.4,
 fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Open issues
-- Side-view tracking on a real person is untested from here. Code fixes are in (near-side trunk tilt,
+- Owner replied "all okay" after the side-view fixes (no numbers). Side-view tracking is untested from here. Code fixes are in (near-side trunk tilt,
   setup needs only the near arm, skeleton on the setup page, "turn" cue). MediaPipe's own side-on
   accuracy is NOT YET MEASURED; the owner reported poor side-view detection on 2026-11-01.
 - One Euro defaults worsened angle error on synthetic data (shoulder MAE 2.26 deg on vs 0.77 off; rep

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlmodel import col, select
 
-from rehabpose.api.db import SessionRow, Target, User
+from rehabpose.api.db import SessionRow, Target, User, utcnow
 from rehabpose.api.deps import DbDep, StateDep
+from rehabpose.api.privacy import delete_user, export_user, require_idle
+from rehabpose.api.progress import aggregate
 from rehabpose.api.schemas import TargetIn, TargetsOut
 from rehabpose.core.exercise import apply_overrides
 
@@ -52,37 +54,32 @@ def put_targets(uid: str, body: list[TargetIn], db: DbDep, state: StateDep) -> T
 
 
 @router.get("/{uid}/progress")
-def progress(uid: str, db: DbDep) -> dict[str, Any]:
-    """Per exercise and day: sessions, reps, mean ROM and quality of ended sessions."""
+def progress(
+    uid: str,
+    db: DbDep,
+    tz_offset_minutes: Annotated[int, Query(ge=-840, le=840)] = 0,
+) -> dict[str, Any]:
+    """Totals, streaks, badges and daily series of ended sessions, in the caller's time zone."""
     _user_or_404(db, uid)
     rows = db.exec(
-        select(SessionRow)
-        .where(SessionRow.user_id == uid, col(SessionRow.ended_at).is_not(None))
-        .order_by(col(SessionRow.started_at))
+        select(SessionRow).where(SessionRow.user_id == uid, col(SessionRow.ended_at).is_not(None))
     ).all()
-    days: dict[str, dict[str, list[SessionRow]]] = defaultdict(lambda: defaultdict(list))
-    for r in rows:
-        days[r.exercise_id][r.started_at.date().isoformat()].append(r)
-    exercises: dict[str, Any] = {}
-    for eid, by_day in days.items():
-        series: list[dict[str, Any]] = []
-        day_roms: list[float] = []
-        for day, ss in sorted(by_day.items()):
-            roms = [s.mean_rom for s in ss if s.mean_rom is not None]
-            if roms:
-                day_roms.append(sum(roms) / len(roms))
-            quals = [s.quality_score for s in ss if s.quality_score is not None]
-            series.append({
-                "date": day,
-                "sessions": len(ss),
-                "reps": sum(s.rep_count for s in ss),
-                "mean_rom": round(sum(roms) / len(roms), 2) if roms else None,
-                "quality": round(sum(quals) / len(quals), 4) if quals else None,
-            })  # fmt: skip
-        exercises[eid] = {
-            "sessions": sum(d["sessions"] for d in series),
-            "total_reps": sum(d["reps"] for d in series),
-            "best_mean_rom": round(max(day_roms), 2) if day_roms else None,
-            "series": series,
-        }
-    return {"user_id": uid, "exercises": exercises}
+    return aggregate(uid, rows, utcnow(), tz_offset_minutes)
+
+
+@router.get("/{uid}/export")
+def export(uid: str, db: DbDep, state: StateDep) -> JSONResponse:
+    """All stored data about a user as a JSON download."""
+    data = export_user(db, _user_or_404(db, uid), state.settings.data_dir)
+    return JSONResponse(
+        data, headers={"Content-Disposition": f'attachment; filename="rehabpose_{uid}.json"'}
+    )
+
+
+@router.delete("/{uid}")
+def delete(uid: str, db: DbDep, state: StateDep) -> dict[str, Any]:
+    """Delete a user and everything stored about them (409 while their data is in use)."""
+    user = _user_or_404(db, uid)
+    sids = list(db.exec(select(SessionRow.id).where(SessionRow.user_id == uid)).all())
+    require_idle(state, sids)
+    return {"user_id": uid, "deleted": delete_user(db, user, state.settings.data_dir)}

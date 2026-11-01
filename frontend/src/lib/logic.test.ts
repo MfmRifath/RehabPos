@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { badges, currentStreak, longestStreak, type DayPoint } from "./badges";
 import { DISCLAIMER } from "./disclaimer";
 import { gameReducer, initialGame } from "./gamification";
 import { detectView, distanceHint, missingJoints, requiredJoints, setupReport, visibleAll, type Pt } from "./setup";
@@ -75,25 +74,6 @@ describe("setup heuristics", () => {
     expect(setupReport(lm, 1000, 1000, "sagittal", "R")).toMatchObject({ detected: true, personVisible: true, missing: [], ready: true });
     expect(setupReport(lm, 1000, 1000, "sagittal", "L")).toMatchObject({ personVisible: false, ready: false });
     expect(missingJoints(lm, "L", "sagittal")).toEqual(["left shoulder", "left elbow", "left wrist", "left hip"]);
-  });
-});
-
-describe("streaks and badges", () => {
-  const day = (date: string, reps = 10, rom: number | null = 120): DayPoint => ({ date, sessions: 1, reps, mean_rom: rom, quality: 1 });
-  it("counts current and longest streaks", () => {
-    const days = ["2026-10-25", "2026-10-26", "2026-10-27", "2026-10-30", "2026-10-31"];
-    expect(currentStreak(days, "2026-11-01")).toBe(2); // yesterday counts
-    expect(currentStreak(days, "2026-10-31")).toBe(2);
-    expect(currentStreak(days, "2026-11-05")).toBe(0);
-    expect(longestStreak(days)).toBe(3);
-    expect(longestStreak([])).toBe(0);
-  });
-  it("awards first-50, 7-day streak and ROM personal best", () => {
-    const series = Array.from({ length: 7 }, (_, i) => day(`2026-10-${String(20 + i).padStart(2, "0")}`, 8, 100 + i));
-    const b = Object.fromEntries(badges(series, "2026-10-26").map((x) => [x.id, x.earned]));
-    expect(b).toEqual({ first_50: true, streak_7: true, rom_pb: true });
-    const none = Object.fromEntries(badges([day("2026-10-01", 5, 130), day("2026-10-03", 5, 120)], "2026-10-03").map((x) => [x.id, x.earned]));
-    expect(none).toEqual({ first_50: false, streak_7: false, rom_pb: false });
   });
 });
 

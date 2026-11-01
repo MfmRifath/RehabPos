@@ -17,8 +17,13 @@ SERIES = "#2a78d6"  # categorical slot 1 (validated on the light surface)
 INK, INK_MUTED, GRID = "#0b0b0b", "#5f5e58", "#e4e3df"
 
 
-def build_report(db: Session, row: SessionRow, exercise: ExerciseConfig) -> dict[str, Any]:
-    """Structured report for one session (all numbers come from the stored session)."""
+def build_report(
+    db: Session, row: SessionRow, exercise: ExerciseConfig, note: str | None = None
+) -> dict[str, Any]:
+    """Structured report for one session (all numbers come from the stored session).
+
+    `note` is an optional banner, e.g. marking a sample built from synthetic data.
+    """
     reps = db.exec(select(Rep).where(Rep.session_id == row.id).order_by(col(Rep.idx))).all()
     events = db.exec(select(Event).where(Event.session_id == row.id).order_by(col(Event.t))).all()
     labels = Counter(r.label for r in reps)
@@ -27,6 +32,7 @@ def build_report(db: Session, row: SessionRow, exercise: ExerciseConfig) -> dict
         "report_version": 1,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "disclaimer": DISCLAIMER,
+        "note": note,
         "session": {
             "id": row.id,
             "user_id": row.user_id,
@@ -41,8 +47,10 @@ def build_report(db: Session, row: SessionRow, exercise: ExerciseConfig) -> dict
             "model_version": row.model_version,
         },
         "target": {"rom": exercise.target, "unit": unit, "min_rep_s": exercise.min_rep_s},
+        "reference_rep": exercise.reference.source,
         "summary": {
             "rep_count": len(reps),
+            "active_duration_s": round(reps[-1].t_end - reps[0].t_start, 1) if reps else None,
             "mean_rom": round(sum(r.peak_angle for r in reps) / len(reps), 2) if reps else None,
             "best_rom": max((r.peak_angle for r in reps), default=None),
             "mean_similarity": (
@@ -119,13 +127,60 @@ def rom_chart_png(report: dict[str, Any], width_in: float = 6.5, height_in: floa
     return buf.getvalue()
 
 
+def flags_timeline_png(report: dict[str, Any], width_in: float = 6.5) -> bytes | None:
+    """When each flag was raised during the session (None if there were no flags)."""
+    events = report["events"]
+    if not events:
+        return None
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    codes = sorted({e["code"] for e in events})
+    fig, ax = plt.subplots(figsize=(width_in, 0.9 + 0.32 * len(codes)), dpi=200)
+    ax.scatter(
+        [e["t"] for e in events],
+        [codes.index(e["code"]) for e in events],
+        s=36,
+        color=SERIES,
+        edgecolors="white",
+        linewidths=0.8,
+        zorder=2,
+    )
+    ax.set_yticks(range(len(codes)), codes, fontsize=7, color=INK)
+    ax.set_ylim(-0.6, len(codes) - 0.4)
+    ax.set_xlim(left=0)
+    ax.set_xlabel("Time since the first frame (s)", fontsize=8, color=INK_MUTED)
+    ax.set_title("When flags were raised", loc="left", fontsize=9, color=INK)
+    ax.tick_params(axis="x", colors=INK_MUTED, labelsize=7)
+    ax.tick_params(length=0)
+    ax.grid(axis="x", color=GRID, linewidth=0.6, zorder=0)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(GRID)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", facecolor="white")
+    plt.close(fig)
+    return buf.getvalue()
+
+
 def render_pdf(report: dict[str, Any]) -> bytes:
-    """A4 PDF: header, disclaimer, summary, ROM chart, per-rep table, flags, version info."""
+    """A4 PDF: header, disclaimer, summary, ROM chart, per-rep table, flags timeline, versions."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import cm
-    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import (
+        Image,
+        KeepTogether,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
 
     styles = getSampleStyleSheet()
     s, summ = report["session"], report["summary"]
@@ -158,6 +213,11 @@ def render_pdf(report: dict[str, Any]) -> bytes:
         )  # fmt: skip
     )
     story += [disclaimer, Spacer(1, 0.4 * cm)]
+    if report.get("note"):
+        story += [Paragraph(f"<b>{report['note']}</b>", styles["Normal"]), Spacer(1, 0.3 * cm)]
+    if s["experimental"]:
+        experimental = "Experimental exercise: its measures are not covered by accuracy targets."
+        story += [Paragraph(f"<b>{experimental}</b>", styles["Normal"]), Spacer(1, 0.3 * cm)]
 
     def fmt(v: Any, nd: int = 1) -> str:
         return "–" if v is None else (f"{v:.{nd}f}" if isinstance(v, float) else str(v))
@@ -166,6 +226,7 @@ def render_pdf(report: dict[str, Any]) -> bytes:
     best_peak = f"{fmt(summ['best_rom'])}{unit}"
     summary_rows = [
         ["Reps", fmt(summ["rep_count"]), "Target", f"{report['target']['rom']:g}{unit}"],
+        ["Active time", f"{fmt(summ['active_duration_s'])} s", "", ""],
         ["Mean peak", mean_peak, "Best peak", best_peak],
         [
             "Quality (correct reps)",
@@ -188,7 +249,7 @@ def render_pdf(report: dict[str, Any]) -> bytes:
     story.append(Image(io.BytesIO(rom_chart_png(report)), width=17 * cm, height=6.8 * cm))
     story.append(Spacer(1, 0.3 * cm))
 
-    header = ["#", f"Peak{unit}", "Duration s", "Peak vel /s", "Similarity", "Label", "Flags"]
+    header = ["#", f"Peak{unit}", "Duration s", "Peak vel /s", "DTW similarity", "Label", "Flags"]
     rows = [header] + [
         [
             str(r["idx"] + 1), f"{r['peak']:.1f}", f"{r['duration_s']:.2f}", f"{r['peak_vel']:.0f}",
@@ -211,12 +272,31 @@ def render_pdf(report: dict[str, Any]) -> bytes:
 
     flags = report["flags_summary"]
     flag_text = ", ".join(f"{k}: {v}" for k, v in sorted(flags.items())) or "none"
-    story += [
+    reference = (
+        "a synthetic reference curve, not a recorded movement"
+        if report["reference_rep"] == "synthetic"
+        else "a recorded reference rep"
+    )
+    timeline = flags_timeline_png(report)
+    story.append(
+        Paragraph(f"DTW similarity compares each rep's shape with {reference}.", styles["Normal"])
+    )
+    flag_block: list[Any] = [
         Paragraph("Flags", styles["Heading3"]),
         Paragraph(
             f"Reps with each flag: {flag_text}. Flag events: {len(report['events'])}.",
             styles["Normal"],
         ),
+    ]
+    if timeline is not None:
+        n_codes = len({e["code"] for e in report["events"]})
+        flag_block.append(
+            Image(
+                io.BytesIO(timeline), width=17 * cm, height=17 * cm * (0.9 + 0.32 * n_codes) / 6.5
+            )
+        )
+    story.append(KeepTogether(flag_block))
+    story += [
         Spacer(1, 0.4 * cm),
         Paragraph(
             f"Model/version: {s['model_version'] or 'n/a'} · report v{report['report_version']} · "

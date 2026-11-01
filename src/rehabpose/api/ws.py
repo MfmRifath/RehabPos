@@ -183,6 +183,7 @@ async def ws_session(ws: WebSocket, sid: str) -> None:
             return
         live = LiveSession(row, state.exercise_for(db, row.user_id, row.exercise_id), state.db)
 
+    state.live_connections[sid] += 1
     slot: LatestSlot[tuple[LandmarksMsg, float]] = LatestSlot()
     wake = asyncio.Event()
     closed = False
@@ -243,6 +244,9 @@ async def ws_session(ws: WebSocket, sid: str) -> None:
         with contextlib.suppress(WebSocketDisconnect, RuntimeError):
             await proc
     finally:
+        state.live_connections[sid] -= 1
+        if state.live_connections[sid] <= 0:
+            del state.live_connections[sid]
         proc.cancel()
         log.info(
             "ws session %s closed: %d reps, %d dropped", sid, len(live.engine.reps), live.dropped

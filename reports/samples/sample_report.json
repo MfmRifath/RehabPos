@@ -1,0 +1,156 @@
+{
+  "report_version": 1,
+  "generated_at": "2026-11-01T17:26:01+00:00",
+  "disclaimer": "RehabPose is a research and portfolio prototype. It is not a medical device, has not been clinically validated, and must not be used to diagnose, treat, or replace advice from a qualified healthcare professional. Stop exercising if you feel pain. Thresholds are engineering defaults, not clinical prescriptions.",
+  "note": "SYNTHETIC sample: generated skeletons, not a real person. These numbers are not a measurement.",
+  "session": {
+    "id": "synthetic-sample",
+    "user_id": "synthetic-demo",
+    "exercise_id": "shoulder_flexion",
+    "exercise_name": "Shoulder flexion",
+    "experimental": false,
+    "side": "R",
+    "view": "sagittal",
+    "source": "synthetic",
+    "started_at": "2026-01-15T10:00:00+00:00",
+    "ended_at": "2026-01-15T10:00:50+00:00",
+    "model_version": "synthetic-generator|rules"
+  },
+  "target": {
+    "rom": 150.0,
+    "unit": "deg",
+    "min_rep_s": 2.0
+  },
+  "reference_rep": "synthetic",
+  "summary": {
+    "rep_count": 6,
+    "active_duration_s": 46.7,
+    "mean_rom": 142.91,
+    "best_rom": 150.24,
+    "mean_similarity": 0.9003,
+    "quality_score": 0.3333,
+    "labels": {
+      "correct": 2,
+      "compensated": 2,
+      "incomplete_rom": 1,
+      "too_fast": 1
+    }
+  },
+  "reps": [
+    {
+      "idx": 0,
+      "t_start": 2.9,
+      "t_end": 8.133,
+      "peak": 149.95,
+      "duration_s": 5.233,
+      "peak_vel": 75.24,
+      "similarity": 0.9029,
+      "label": "correct",
+      "flags": []
+    },
+    {
+      "idx": 1,
+      "t_start": 12.4,
+      "t_end": 17.6,
+      "peak": 149.97,
+      "duration_s": 5.2,
+      "peak_vel": 74.47,
+      "similarity": 0.899,
+      "label": "compensated",
+      "flags": [
+        "TRUNK_LEAN"
+      ]
+    },
+    {
+      "idx": 2,
+      "t_start": 21.9,
+      "t_end": 27.1,
+      "peak": 148.19,
+      "duration_s": 5.2,
+      "peak_vel": 74.4,
+      "similarity": 0.8999,
+      "label": "correct",
+      "flags": []
+    },
+    {
+      "idx": 3,
+      "t_start": 31.6,
+      "t_end": 36.4,
+      "peak": 110.56,
+      "duration_s": 4.8,
+      "peak_vel": 55.04,
+      "similarity": 0.8936,
+      "label": "incomplete_rom",
+      "flags": [
+        "INCOMPLETE_ROM"
+      ]
+    },
+    {
+      "idx": 4,
+      "t_start": 39.9,
+      "t_end": 41.2,
+      "peak": 148.53,
+      "duration_s": 1.3,
+      "peak_vel": 302.82,
+      "similarity": 0.9028,
+      "label": "too_fast",
+      "flags": [
+        "TOO_FAST"
+      ]
+    },
+    {
+      "idx": 5,
+      "t_start": 44.4,
+      "t_end": 49.633,
+      "peak": 150.24,
+      "duration_s": 5.233,
+      "peak_vel": 79.01,
+      "similarity": 0.9033,
+      "label": "compensated",
+      "flags": [
+        "ELBOW_BEND"
+      ]
+    }
+  ],
+  "flags_summary": {
+    "TRUNK_LEAN": 1,
+    "INCOMPLETE_ROM": 1,
+    "TOO_FAST": 1,
+    "ELBOW_BEND": 1
+  },
+  "events": [
+    {
+      "t": 13.5,
+      "code": "TRUNK_LEAN",
+      "severity": "warn",
+      "source": "rule"
+    },
+    {
+      "t": 36.4,
+      "code": "INCOMPLETE_ROM",
+      "severity": "info",
+      "source": "rule"
+    },
+    {
+      "t": 41.2,
+      "code": "TOO_FAST",
+      "severity": "warn",
+      "source": "rule"
+    },
+    {
+      "t": 45.167,
+      "code": "ELBOW_BEND",
+      "severity": "warn",
+      "source": "rule"
+    },
+    {
+      "t": 45.7,
+      "code": "ELBOW_BEND",
+      "severity": "warn",
+      "source": "rule"
+    }
+  ],
+  "versions": {
+    "rehabpose": "0.1.0"
+  }
+}

@@ -11,6 +11,7 @@ from sqlmodel import col, select
 
 from rehabpose.api.db import Event, Rep, SessionRow, User, utcnow
 from rehabpose.api.deps import DbDep, StateDep
+from rehabpose.api.privacy import delete_session_files, require_idle
 from rehabpose.api.reports import build_report, render_pdf
 from rehabpose.api.schemas import EventOut, RepOut, SessionCreate, SessionDetail, SessionOut
 from rehabpose.api.state import get_session_row, model_version
@@ -76,6 +77,16 @@ def end_session(sid: str, db: DbDep) -> SessionOut:
         db.commit()
         db.refresh(row)
     return SessionOut.model_validate(row)
+
+
+@router.delete("/{sid}", status_code=204)
+def delete_session(sid: str, db: DbDep, state: StateDep) -> None:
+    """Delete a session, its reps and events, and its files (409 while in use)."""
+    row = get_session_row(db, sid)
+    require_idle(state, [sid])
+    db.delete(row)
+    db.commit()
+    delete_session_files(state.settings.data_dir, sid)
 
 
 @router.get("/{sid}/report.json")
