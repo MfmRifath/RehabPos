@@ -121,6 +121,13 @@
   PiG hips <- mean(ASI, PSI). Approximations are listed in docs/05 §2.
 - 2026-11-01 (P4): Labeling angle measures are limited to true 3-point angles (upper_arm_trunk_angle,
   elbow_interior). Rep flags in saved labels are derived from overlapping compensation segments.
+- 2026-11-01 (P4): INCIDENT. The unanchored `data/` in .gitignore also ignored the package
+  src/rehabpose/data/ from phase 2 onward, and ruff (which respects .gitignore) skipped linting
+  it. Fixed in 2f41fa5 by anchoring root-only patterns (/data/, /mlruns/, /mlartifacts/,
+  /reports/*). The tags phase-2 and phase-3 point at commits WITHOUT data/extract.py and
+  data/video_io.py, so checkouts at those tags do not import. They are unpushed and could be
+  rewritten if the owner wants. Verified: a fresh `git clone` of phase-4 gives 358 passed,
+  4 skipped (real-model tests skip because models are git-ignored).
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -144,6 +151,8 @@ fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Resume
 ```bash
+# verify the committed tree, not just the working tree:
+#   git clone . /tmp/x && cd /tmp/x && uv sync --frozen && uv run pytest -q
 cd /Users/admin/Projects/RehabPos
 uv sync
 uv run pytest -q && uv run ruff check . && uv run ruff format --check . && uv run mypy src

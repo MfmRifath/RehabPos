@@ -1,7 +1,8 @@
 # --- Data, models, experiment tracking (never commit) ---
-data/
-mlruns/
-mlartifacts/
+# Anchored to the repo root: an unanchored `data/` also matched src/rehabpose/data/.
+/data/
+/mlruns/
+/mlartifacts/
 *.mp4
 *.mov
 *.avi
@@ -20,9 +21,9 @@ mlartifacts/
 !tests/fixtures/**
 
 # Generated reports (keep folder; committed samples are added explicitly)
-reports/*
-!reports/.gitkeep
-!reports/samples/
+/reports/*
+!/reports/.gitkeep
+!/reports/samples/
 
 # --- Python ---
 .venv/
