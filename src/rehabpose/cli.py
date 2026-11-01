@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
@@ -48,9 +49,37 @@ def _not_implemented(command: str, phase: int) -> NoReturn:
 
 
 @app.command()
-def extract() -> None:
+def extract(
+    video: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Input video.")],
+    model: Annotated[str, typer.Option(help="MediaPipe variant: lite | full | heavy.")] = "full",
+    out: Annotated[
+        Path | None, typer.Option(help="Output parquet (default data/interim/<stem>_<model>).")
+    ] = None,
+    download_model: Annotated[
+        bool, typer.Option(help="Allow downloading the pose model if it is missing.")
+    ] = False,
+) -> None:
     """Extract pose landmarks from a video into a parquet file."""
-    _not_implemented("extract", 2)
+    from rehabpose.data.extract import extract_video
+    from rehabpose.pose import create_estimator
+    from rehabpose.pose.model_files import VARIANTS, ModelFileMissingError
+
+    if model not in VARIANTS:
+        raise typer.BadParameter(f"must be one of {VARIANTS}", param_hint="--model")
+    settings = get_settings()
+    out = out or settings.data_dir / "interim" / f"{video.stem}_{model}.parquet"
+    try:
+        estimator = create_estimator(model, settings.models_dir, download=download_model)
+    except ModelFileMissingError as exc:
+        log.error("%s", exc)
+        raise typer.Exit(code=2) from exc
+    try:
+        res = extract_video(
+            video, estimator, out, meta={"pose_backend": "mediapipe", "model": model}, progress=True
+        )
+    finally:
+        estimator.close()
+    typer.echo(f"{res.out_path}: {res.n_frames} frames, {res.n_detected} with a person")
 
 
 @app.command()

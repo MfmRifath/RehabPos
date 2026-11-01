@@ -40,7 +40,11 @@ Derived points: `mid_shoulder = (lm11 + lm12)/2`, `mid_hip = (lm23 + lm24)/2`.
   If visibility fails during calibration, the engine extends the window, up to 3 s, then reports
   `setup_status` with hints.
 - **Normalization unit:** shoulder width, the distance between landmarks 11 and 12. It is used for all
-  distance thresholds and for One Euro speed normalization.
+  distance thresholds and for One Euro speed normalization. In side-on (sagittal) 2D views the
+  shoulders overlap and the projected width collapses towards 0, so the implementation
+  (`rehabpose.core.angles.body_scale`) floors it at 0.7 × torso length (mid-hip to mid-shoulder).
+  0.7 is roughly the adult shoulder-width to torso-length ratio. In frontal views the floor is
+  normally inactive.
 
 ## 3. Measures
 Notation: `S`, `E`, `W`, `H`, `Ear` = shoulder, elbow, wrist, hip, ear on the exercising side.

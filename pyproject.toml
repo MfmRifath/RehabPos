@@ -83,7 +83,7 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["rehabpose"]
+known-first-party = ["rehabpose", "tests"]
 
 # --- mypy ---------------------------------------------------------------------------------------
 [tool.mypy]
@@ -112,7 +112,7 @@ extra_checks = true
 
 [[tool.mypy.overrides]]
 module = ["mediapipe.*", "lightgbm.*", "mlflow.*", "reportlab.*", "sklearn.*", "scipy.*", "rtmlib.*",
-          "ultralytics.*", "coremltools.*", "onnxruntime.*"]
+          "ultralytics.*", "coremltools.*", "onnxruntime.*", "pyarrow.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
@@ -122,6 +122,8 @@ init_typed = true
 # --- pytest -------------------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["mediapipe: needs a real MediaPipe model file under data/models/"]
 addopts = "-ra"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -141,4 +143,5 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.17.3",
     "types-pyyaml>=6.0.12.20261030",
+    "types-tqdm>=4.70.0.20260906",
 ]
