@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///data/rehabpose.db"
     pose_model: PoseModelVariant = "full"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    frontend_dist: Path = Path("frontend/dist")
+    max_upload_mb: int = Field(default=500, gt=0)
 
     @classmethod
     def settings_customise_sources(

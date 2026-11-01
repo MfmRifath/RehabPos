@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from rehabpose import DISCLAIMER, __version__
-from rehabpose.core.engine import FeedbackFrame, SessionEngine
+from rehabpose.core.engine import Event, FeedbackFrame, RepRecord, SessionEngine
 from rehabpose.core.exercise import ExerciseConfig, View
 from rehabpose.core.landmarks import Frame, Side
 from rehabpose.data.extract import extract_video, load_frames, read_meta
@@ -30,6 +30,8 @@ class AnalysisResult:
     out_dir: Path
     summary: dict[str, Any]
     files: dict[str, Path] = field(default_factory=dict)
+    reps: list[RepRecord] = field(default_factory=list)
+    events: list[Event] = field(default_factory=list)
 
 
 def run_engine(
@@ -136,7 +138,7 @@ def analyze(
         files["video"] = out_dir / "annotated.mp4"
         _write_video(files["video"], frames, feedback, engine, fps, source, size)
     log.info("Analysis written to %s (%d reps)", out_dir, len(engine.reps))
-    return AnalysisResult(out_dir, summary, files)
+    return AnalysisResult(out_dir, summary, files, list(engine.reps), list(engine.events))
 
 
 _REP_COLUMNS = [

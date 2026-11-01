@@ -200,9 +200,20 @@ All paths are prefixed with `/api` unless noted. JSON bodies are validated by py
 | POST | `/api/videos` | Upload video (multipart) → `job_id`, `sid` |
 | GET | `/api/jobs/{job_id}` | Job status / progress / result links |
 | WS | `/ws/session/{sid}` | Live landmarks → feedback (protocol v1) |
+| GET | `/api/sessions/{sid}/annotated.mp4` | Annotated video of an upload session (after its job is done) |
 | WS | `/ws/frames/{sid}` | Optional: JPEG frames for server-side pose ablations |
 
 Phase 8 adds `GET /api/users/{uid}/export` and `DELETE /api/users/{uid}` (FR-35).
+Status codes: 201 for session creation and 202 for an accepted upload. 404 means an unknown
+session, user, exercise or job. 415 is a non-video upload, 413 an upload over `max_upload_mb`
+(500 by default), and 422 a validation error (for example a view the exercise doesn't allow, or a
+threshold override for an unknown rule). `/ws/frames/{sid}` is not implemented yet; it is planned
+for the phase 7 pose-backend ablations.
+
+**Upload jobs** run one at a time in a thread pool, using Python MediaPipe on the CPU. They live
+in memory and do not survive a restart. The **raw uploaded video is deleted when its job
+finishes**, whether it succeeds or fails (docs/09 §4). Landmarks, the annotated video and the CSV/JSON
+outputs are kept under `data/sessions/<sid>/` until the session is deleted (phase 8).
 
 ## 7. WebSocket protocol v1
 These are pydantic models in `rehabpose/api/schemas.py`, mirrored as TypeScript types in
@@ -233,7 +244,21 @@ types get an `error` reply, and the connection stays open.
  "quality": {"visibility_ok": true, "view_ok": true},
  "server_ms": 1.3}
 ```
-The values in these examples are illustrative, not measurements. `phase` ∈ `rest | ascending |
+The values in these examples are illustrative, not measurements.
+
+Implementation notes (phase 5):
+- Two **optional fields** are added to v1, and clients may ignore them: `cue.severity`
+  (`info` / `warn` / `error`, for the banner colour) and `feedback.dropped` (frames skipped by
+  backpressure so far).
+- **Backpressure:** an unprocessed landmarks message is replaced by the newer one and counted
+  as dropped. The newest frame is always answered. Control messages are never dropped: a pending
+  frame is processed before the control is applied.
+- **Error codes:** `bad_message` (fails pydantic validation, including a wrong `v`), `sid_mismatch`,
+  `non_monotonic_ts`, and `unknown_session` / `session_ended`. The last two close the socket with
+  code 4404. All other errors keep the connection open.
+- **Times:** rep and event times stored in the DB are seconds since the session's first frame.
+- **Per-user targets** (therapist overrides) apply when the WS connects and when an upload job
+  starts. `phase` ∈ `rest | ascending |
 peak | descending`. An angle whose landmarks fail the visibility gate is `null`. `cue` is `null` when
 nothing should be shown.
 

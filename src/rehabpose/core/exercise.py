@@ -175,3 +175,28 @@ def load_exercises(directory: Path) -> dict[str, ExerciseConfig]:
             raise ValueError(f"{path}: id {ex.id!r} must match the file name")
         out[ex.id] = ex
     return out
+
+
+def apply_overrides(
+    exercise: ExerciseConfig,
+    target: float | None = None,
+    min_rep_s: float | None = None,
+    thresholds: dict[str, float] | None = None,
+) -> ExerciseConfig:
+    """Per-user copy of an exercise (therapist settings), re-validated.
+
+    thresholds maps frame-rule codes to new `value`s; unknown codes raise ValueError.
+    """
+    data = exercise.model_dump()
+    if target is not None:
+        data["target"] = target
+    if min_rep_s is not None:
+        data["min_rep_s"] = min_rep_s
+    codes = {r["code"] for r in data["rules"] if r["kind"] == "frame"}
+    unknown = sorted(set(thresholds or {}) - codes)
+    if unknown:
+        raise ValueError(f"no frame rule {unknown} in {exercise.id}")
+    for rule in data["rules"]:
+        if rule["kind"] == "frame" and rule["code"] in (thresholds or {}):
+            rule["value"] = float((thresholds or {})[rule["code"]])
+    return ExerciseConfig.model_validate(data)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -70,8 +71,12 @@ def extract_video(
     out_path: Path,
     meta: dict[str, Any] | None = None,
     progress: bool = False,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> ExtractResult:
-    """Run `estimator` over every frame of `video` and write landmarks to `out_path`."""
+    """Run `estimator` over every frame of `video` and write landmarks to `out_path`.
+
+    on_progress(done, total) is called after each frame (total from the container header).
+    """
     info = probe(video)
     meta = {
         "source": str(video),
@@ -88,6 +93,8 @@ def extract_video(
         if fr is not None:
             fr = Frame(fr.lm, fr.world, ts, fr.img_w, fr.img_h, idx)
         rows.append((idx, ts, img.shape[1], img.shape[0], fr))
+        if on_progress is not None:
+            on_progress(idx + 1, info.frame_count)
     elapsed = time.perf_counter() - t0
 
     out_path = Path(out_path)

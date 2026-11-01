@@ -122,3 +122,17 @@ def test_id_must_match_filename(tmp_path: Path) -> None:
     assert load_exercise(tmp_path / "other.yaml").id == "demo"
     with pytest.raises(ValueError, match="must match"):
         load_exercises(tmp_path)
+
+
+def test_apply_overrides() -> None:
+    from rehabpose.core.exercise import apply_overrides
+
+    flex = load_exercises(EX_DIR)["shoulder_flexion"]
+    ex = apply_overrides(flex, target=120, min_rep_s=3.0, thresholds={"TRUNK_LEAN": 6})
+    assert (ex.target, ex.min_rep_s, ex.peak_threshold) == (120, 3.0, 105)
+    assert next(r for r in ex.frame_rules if r.code == "TRUNK_LEAN").value == 6
+    assert flex.target == 150  # original untouched
+    with pytest.raises(ValueError, match="no frame rule"):
+        apply_overrides(flex, thresholds={"TOO_FAST": 1})
+    with pytest.raises(ValidationError):
+        apply_overrides(flex, target=40)  # below start_below + min_excursion

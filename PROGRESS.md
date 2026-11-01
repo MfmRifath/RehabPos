@@ -8,8 +8,8 @@
 | 2 | Pose & geometry core | done | phase-2 |
 | 3 | Reps, tempo, DTW, rules, offline analysis | done | phase-3 |
 | 4 | Data tooling | done | phase-4 |
-| 5 | Backend | next (waiting for dataset decision) | |
-| 6 | Frontend | todo | |
+| 5 | Backend | done | phase-5 |
+| 6 | Frontend | next | |
 | 7 | ML training & evaluation (MPS) | todo | |
 | 8 | Reports, progress, gamification polish | todo | |
 | 9 | Quality, CI, Docker, benchmarks | todo | |
@@ -33,6 +33,17 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 5 tasks
+- [x] api/schemas.py WS protocol v1 (discriminated union) + REST models
+- [x] api/db.py SQLModel tables (FK cascade, SQLite foreign_keys=ON), rep_row helper
+- [x] api/ws.py LiveSession + LatestSlot backpressure (newest frame wins, drops counted)
+- [x] api/routes: health, exercises, sessions (create/get/end/report.json/report.pdf/annotated.mp4),
+      users (targets GET/PUT with validation, progress), videos + jobs
+- [x] api/jobs.py thread-pool upload processing (raw upload deleted afterwards)
+- [x] api/reports.py JSON + PDF (reportlab, matplotlib ROM chart with a validated palette colour)
+- [x] core/exercise.apply_overrides (per-user therapist targets); `rehabpose serve`
+- [x] integration tests: WS replay JSONL, real-uvicorn backpressure, errors, control, REST, upload
 
 ## Phase 4 tasks
 - [x] data/schema.py annotation v1 (pydantic, angle consistency check, JSON Schema)
@@ -128,6 +139,16 @@
   data/video_io.py, so checkouts at those tags do not import. They are unpushed and could be
   rewritten if the owner wants. Verified: a fresh `git clone` of phase-4 gives 358 passed,
   4 skipped (real-model tests skip because models are git-ignored).
+- 2026-11-01 (P5): Additive optional WS fields: cue.severity and feedback.dropped (docs/03 §7).
+  Rep/event times in the DB are seconds since the session's first frame.
+- 2026-11-01 (P5): Backpressure is tested against a real uvicorn server. Starlette's TestClient
+  alternates send/receive strictly and never shows drops. Measured: a burst of 200 with a 5 ms
+  artificial delay gave 5 processed and 195 dropped, and the newest frame was always answered.
+- 2026-11-01 (P5): Upload jobs are in memory (lost on restart) and use 1 worker. Raw uploads are
+  deleted after each job.
+- 2026-11-01 (P5): /ws/frames/{sid} (server-side pose ablations) is deferred to phase 7.
+- 2026-11-01 (P5): The users table needs an explicit flush before session insert (no ORM
+  relationships), otherwise the SQLite FK check fails.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -135,6 +156,8 @@ mediapipe 1.2.0 (Tasks API `PoseLandmarker` present), torch 2.15.0, numpy 2.5.4,
 fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Open issues
+- StarletteDeprecationWarning from fastapi.testclient (it wants `httpx2`). This is third-party;
+  revisit when FastAPI updates its TestClient.
 - Waiting on the owner: which datasets are downloaded/approved (phase 4 STOP question).
 - Default TOO_FAST peak velocity (90 °/s) flags minimum-jerk reps faster than about 6 s for a 150°
   ROM. That is consistent with the 45 °/s "controlled" reference, but therapists may find it strict.

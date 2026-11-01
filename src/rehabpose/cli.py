@@ -147,9 +147,25 @@ def analyze(
 
 
 @app.command()
-def serve() -> None:
+def serve(
+    host: Annotated[str | None, typer.Option(help="Bind address (default from settings).")] = None,
+    port: Annotated[int | None, typer.Option(help="Port (default from settings).")] = None,
+    reload: Annotated[bool, typer.Option(help="Auto-reload on code changes (dev).")] = False,
+) -> None:
     """Run the FastAPI server (REST + WebSocket)."""
-    _not_implemented("serve", 5)
+    import uvicorn
+
+    settings = get_settings()
+    host, port = host or settings.host, port or settings.port
+    log.info("RehabPose API on http://%s:%d (docs at /docs)", host, port)
+    if reload:
+        uvicorn.run(
+            "rehabpose.api.main:create_app", host=host, port=port, reload=True, factory=True
+        )
+        return
+    from rehabpose.api.main import create_app
+
+    uvicorn.run(create_app(settings), host=host, port=port, log_level=settings.log_level.lower())
 
 
 data_app = typer.Typer(help="Dataset utilities (list, info, stats, extract-all, splits, schema).")
