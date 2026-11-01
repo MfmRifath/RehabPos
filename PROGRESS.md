@@ -12,8 +12,8 @@
 | 6 | Frontend | done (owner manual check pending) | phase-6 |
 | 7 | ML training & evaluation (MPS) | done on SYNTHETIC data only | phase-7 |
 | 8 | Reports, progress, gamification polish | done | phase-8 |
-| 9 | Quality, CI, Docker, benchmarks | next | |
-| 10 | Final docs | todo | |
+| 9 | Quality, CI, Docker, benchmarks | done except Docker build | phase-9 |
+| 10 | Final docs | next | |
 | 11 | Core ML / iOS (optional, only on request) | not requested | |
 
 ## Phase 0 tasks
@@ -33,6 +33,13 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 9 tasks
+- [x] .github/workflows/ci.yml; the same commands pass locally (98.59 % coverage of rehabpose.core)
+- [x] docker/Dockerfile, docker-compose.yml, .dockerignore; compose file validated
+- [ ] `docker compose build`: NOT RUN (daemon off, pulling base images not approved)
+- [ ] CI on GitHub and anything on Linux: NOT RUN (origin/main is at 45cdecd; the workflow is not pushed)
+- [x] bench/benchmark.py + `rehabpose bench`; reports/benchmarks.md has real numbers from this Mac
 
 ## Phase 8 tasks
 - [x] api/progress.py: totals, rep-weighted daily series, streaks, badges, caller's time zone
@@ -218,6 +225,10 @@ NOT YET MEASURED. Live browser FPS: NOT YET MEASURED.
   session mean ROM within an exercise; a first session cannot earn it.
 - 2026-11-01 (P8): Added DELETE /api/sessions/{sid} (docs/09 promised deleting a session) and
   `session_retention_days` (default null: keep until deleted). pypdf added to the dev group to test PDF text.
+- 2026-11-01 (P9): Docker publishes on 127.0.0.1 only because the API has no login. Models are served
+  from data/models by a strict filename route, since the image does not contain them.
+- 2026-11-01 (P9): Tests marked `perf` are skipped in CI (shared runners). Action versions were pinned
+  from memory (checkout@v4, setup-node@v4, setup-uv@v5) because gh is not installed; check on first push.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)

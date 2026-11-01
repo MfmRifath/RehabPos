@@ -61,7 +61,8 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    for router in (meta.router, sessions.router, users.router, videos.router, ws.router):
+    routers = (meta.router, meta.assets, sessions.router, users.router, videos.router, ws.router)
+    for router in routers:
         app.include_router(router)
     if settings.frontend_dist.is_dir():
         app.mount("/", StaticFiles(directory=settings.frontend_dist, html=True), name="frontend")

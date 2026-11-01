@@ -19,15 +19,29 @@ For production-like local use, run `npm run build`. FastAPI then serves `fronten
   build time), so the production build has no runtime CDN dependency (NFR-09).
 
 ## 2. Docker (single container, CPU-only)
+**Status: written but never built or run.** Building needs the Docker daemon and pulls base images,
+which the owner has not approved yet. `docker compose config` validates the compose file, and tests
+check the Dockerfile's structure and that `uv.lock` has CPU torch wheels for Linux x86_64 and arm64.
+
+```bash
+docker compose build
+docker compose up
+```
+Then open http://127.0.0.1:8000.
+
 - `docker/Dockerfile`, multi-stage:
-  1. `node:24` builds `frontend/dist`.
-  2. A `python:3.12-slim` runtime installs the app with uv (`uv sync --frozen --no-dev`). Torch comes
-     from the CPU index, which the lock file guarantees ([ADR 0002](adr/0002-cpu-only-torch-lock.md)).
-  3. It runs as a non-root user. A healthcheck calls `GET /api/health`.
-- `docker-compose.yml`: port `8000:8000`, volume `./data:/app/data` (DB, models, uploads).
+  1. `node:24-slim` builds `frontend/dist`.
+  2. `python:3.12-slim` installs the app with `uv sync --frozen --no-dev`. Torch comes from the CPU
+     index, which the lock file guarantees ([ADR 0002](adr/0002-cpu-only-torch-lock.md)).
+  3. It runs as the non-root user `rehabpose`. A healthcheck calls `GET /api/health`.
+- `docker-compose.yml`: publishes `127.0.0.1:8000:8000` and mounts `./data:/app/data` (DB, models,
+  uploads). The API has no login, so it binds to localhost only. Think about access control before
+  publishing the port to a network.
+- **Pose models are not in the image.** Put them in `data/models/`; the server serves
+  `/models/pose_landmarker_{lite,full,heavy}.task` from there. Other files in that folder are not exposed.
+- On Linux, `./data` must be writable by UID 1000.
 - Containers on macOS have no access to the GPU/MPS. In-container inference (upload mode) is CPU
   only. Live mode is unaffected because pose runs in the browser.
-- Before pulling large base images, the owner is asked.
 
 ## 3. Phone (same LAN)
 Browsers allow camera access only on secure origins, so a phone needs HTTPS.
@@ -50,13 +64,23 @@ Exact commands are written in the README in phase 10.
 - Exercise thresholds: `configs/exercises/*.yaml`. Per-user overrides live in the DB (`target` table).
 - Data paths: `data/` (DB, models, uploads, interim), `mlruns/` (MLflow).
 
-## 5. CI (GitHub Actions, phase 9)
+## 5. CI (GitHub Actions)
+`.github/workflows/ci.yml`. **Status: the same commands pass locally on macOS; the workflow has never
+run on GitHub, and nothing has been run on Linux.**
+
 | Job | Runner | Steps |
 |---|---|---|
-| python | `macos-latest`, `ubuntu-latest` | `uv sync --frozen` → ruff → mypy → `pytest --cov` (fail-under 80 for core) |
+| python | `macos-latest`, `ubuntu-latest` | `uv sync --frozen` → ruff → format check → mypy → `pytest -m "not perf" --cov=rehabpose.core --cov-fail-under=80` |
 | frontend | `ubuntu-latest` | `npm ci` → lint → vitest → build |
 
-There is no GPU or CUDA in CI. Tests use synthetic fixtures only.
+There is no GPU or CUDA in CI. Tests use synthetic fixtures only; pose-model tests skip because models
+are not committed. Tests marked `perf` (tight timing margin) run locally only. macOS runners install
+Homebrew's `libomp` for LightGBM, and Linux runners install the OpenGL libraries OpenCV needs.
+
+## 5b. Benchmarks
+`rehabpose bench --synthetic --models lite,full,heavy --ws-replay`, or `--video <file>`, updates
+[reports/benchmarks.md](../reports/benchmarks.md). Each model runs in its own process so peak memory is
+its own. Run it with nothing else active and under `caffeinate -i`.
 
 ## 6. Release and versioning
 - Phases are tagged `phase-N`. Releases use semantic versions (`v0.x`) after phase 10.

@@ -1,0 +1,86 @@
+{
+  "pose": {
+    "command": "rehabpose bench --synthetic --models lite,full,heavy --ws-replay",
+    "video": "rendered mannequin",
+    "synthetic": true,
+    "models": {
+      "lite": {
+        "frames": 675,
+        "detected": 675,
+        "reps": 0,
+        "pose_ms": {
+          "median": 7.934,
+          "p95": 8.122
+        },
+        "engine_ms": {
+          "median": 0.151,
+          "p95": 0.18
+        },
+        "fps": 122.6,
+        "peak_rss_mb": 290.0
+      },
+      "full": {
+        "frames": 675,
+        "detected": 675,
+        "reps": 3,
+        "pose_ms": {
+          "median": 12.727,
+          "p95": 12.979
+        },
+        "engine_ms": {
+          "median": 0.163,
+          "p95": 0.199
+        },
+        "fps": 77.1,
+        "peak_rss_mb": 304.8
+      },
+      "heavy": {
+        "frames": 675,
+        "detected": 675,
+        "reps": 3,
+        "pose_ms": {
+          "median": 52.232,
+          "p95": 52.784
+        },
+        "engine_ms": {
+          "median": 0.176,
+          "p95": 0.214
+        },
+        "fps": 19.1,
+        "peak_rss_mb": 366.9
+      }
+    }
+  },
+  "machine": {
+    "machine": "arm64",
+    "python": "3.12.15",
+    "libraries": {
+      "mediapipe": "1.2.0",
+      "torch": "2.15.0",
+      "numpy": "2.5.4",
+      "opencv-python": "5.0.0.93",
+      "fastapi": "0.162.0",
+      "uvicorn": "0.54.0",
+      "websockets": "17.4"
+    },
+    "hw_model": "Mac15,6",
+    "chip": "Apple M3 Pro",
+    "memory_gb": 18,
+    "macos": "26.6.2"
+  },
+  "updated": "2026-11-01T17:42:17+00:00",
+  "ws": {
+    "command": "rehabpose bench --synthetic --models lite,full,heavy --ws-replay",
+    "messages": 1755,
+    "reps": 6,
+    "server_ms": {
+      "median": 0.168,
+      "p95": 0.193
+    },
+    "round_trip_ms": {
+      "median": 0.299,
+      "p95": 0.369
+    },
+    "p99_server_ms": 0.239
+  }
+}

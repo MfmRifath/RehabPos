@@ -54,6 +54,19 @@ into `frontend/public/`. The dev server has no Content-Security-Policy, so Media
 telemetry is only blocked in the production build (see docs/adr/0003). Run `npm ci` only once,
 after cloning or when `package-lock.json` changes.
 
+## Run with Docker
+
+Written but not yet built or run; see [docs/08](docs/08_deployment_plan.md). Pose models go in `data/models/`.
+
+```bash
+docker compose build
+docker compose up
+```
+
+## Benchmarks
+
+Measured numbers and the machine they came from are in [reports/benchmarks.md](reports/benchmarks.md).
+
 ## License
 
 [Apache-2.0](LICENSE). The optional `[ablation]` extra installs Ultralytics (AGPL-3.0). It is never

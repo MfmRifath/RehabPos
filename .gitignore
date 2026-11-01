@@ -24,6 +24,8 @@
 /reports/*
 !/reports/.gitkeep
 !/reports/samples/
+!/reports/benchmarks.md
+!/reports/benchmarks.json
 
 # --- Python ---
 .venv/

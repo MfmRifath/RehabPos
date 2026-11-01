@@ -1,0 +1,11 @@
+services:
+  rehabpose:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: rehabpose:local
+    ports:
+      # Localhost only: the API has no login. See docs/08 before exposing it to a network.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data:/app/data

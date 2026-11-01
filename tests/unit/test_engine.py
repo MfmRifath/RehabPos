@@ -278,6 +278,7 @@ def test_smoothing_off_still_counts() -> None:
 # --- performance --------------------------------------------------------------------------------
 
 
+@pytest.mark.perf
 @pytest.mark.no_cover  # coverage tracing slows Python ~2.4x; timing would be meaningless
 def test_engine_10k_frames_under_2s() -> None:
     """Acceptance: 10k frames processed in < 2 s on CPU (frame generation excluded)."""

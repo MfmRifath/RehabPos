@@ -355,9 +355,64 @@ def evaluate(
 
 
 @app.command()
-def bench() -> None:
-    """Benchmark pose backends, engine and server latency."""
-    _not_implemented("bench", 9)
+def bench(
+    video: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, help="Video to benchmark.")
+    ] = None,
+    synthetic: Annotated[
+        bool, typer.Option(help="Use a rendered cartoon set instead of a video.")
+    ] = False,
+    models: Annotated[str, typer.Option(help="Comma-separated pose models.")] = "lite,full,heavy",
+    ws_replay: Annotated[
+        bool, typer.Option(help="Measure server latency over a WebSocket.")
+    ] = False,
+    exercise: Annotated[str, typer.Option(help="Exercise for the engine.")] = "shoulder_abduction",
+    side: Annotated[str, typer.Option(help="L or R.")] = "R",
+    view: Annotated[str | None, typer.Option(help="sagittal | frontal.")] = None,
+) -> None:
+    """Benchmark pose, engine and server latency; updates reports/benchmarks.md."""
+    import sys
+    import tempfile
+
+    from rehabpose.bench.benchmark import bench_pose, bench_ws, update_report
+    from rehabpose.pose.model_files import VARIANTS
+    from rehabpose.settings import project_root
+
+    if video is None and not synthetic and not ws_replay:
+        raise typer.BadParameter("pass --video, --synthetic or --ws-replay")
+    if video is not None and synthetic:
+        raise typer.BadParameter("pass either --video or --synthetic")
+    variants = [m.strip() for m in models.split(",") if m.strip()]
+    bad = sorted(set(variants) - set(VARIANTS))
+    if bad:
+        raise typer.BadParameter(f"unknown {bad}; choose from {VARIANTS}", param_hint="--models")
+    if side not in ("L", "R"):
+        raise typer.BadParameter("must be L or R", param_hint="--side")
+    command = " ".join(["rehabpose", *sys.argv[1:]])
+    out = project_root() / "reports" / "benchmarks.md"
+    if video is not None or synthetic:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = video
+            if source is None:
+                from rehabpose.synth import RepSpec, rep_sequence, write_frames_video
+
+                frames = rep_sequence(
+                    "shoulder_abduction",
+                    [RepSpec(130, duration_s=6.0, pause_s=1.0)] * 3,
+                    img_w=640,
+                    img_h=480,
+                    px_per_m=330,
+                    noise_px=0.0,
+                    rest_value=20.0,
+                )
+                source = write_frames_video(Path(tmp) / "mannequin.mp4", frames)
+            results = bench_pose(source, variants, exercise, side, view)  # type: ignore[arg-type]
+            name = "rendered mannequin" if video is None else source.name
+        section = {"command": command, "video": name, "synthetic": video is None, "models": results}
+        update_report(out, "pose", section)
+    if ws_replay:
+        update_report(out, "ws", {"command": command, **bench_ws()})
+    typer.echo(f"benchmarks written to {out}")
 
 
 @app.command()
