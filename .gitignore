@@ -1,0 +1,56 @@
+# --- Data, models, experiment tracking (never commit) ---
+data/
+mlruns/
+mlartifacts/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.parquet
+*.pt
+*.pth
+*.onnx
+*.task
+*.mlpackage/
+*.mlmodel
+*.db
+*.sqlite
+
+# Tiny synthetic fixtures (< 1 MB each) are allowed
+!tests/fixtures/**
+
+# Generated reports (keep folder; committed samples are added explicitly)
+reports/*
+!reports/.gitkeep
+!reports/samples/
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+
+# --- Env, OS, editors ---
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json

@@ -1,0 +1,11 @@
+# RehabPose application defaults. Override any key with REHABPOSE_<KEY> env vars
+# (e.g. REHABPOSE_PORT=9000) or point REHABPOSE_CONFIG at another YAML file.
+host: 127.0.0.1
+port: 8000
+log_level: INFO
+data_dir: data
+models_dir: data/models
+db_url: sqlite:///data/rehabpose.db
+pose_model: full # lite | full | heavy (MediaPipe pose_landmarker_*.task)
+cors_origins:
+  - http://localhost:5173

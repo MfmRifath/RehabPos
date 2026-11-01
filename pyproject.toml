@@ -1,0 +1,144 @@
+[project]
+name = "rehabpose"
+version = "0.1.0"
+description = "Real-time, camera-only rehabilitation exercise coach (research and portfolio prototype)."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "MfmRifath", email = "mmfmrifath@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "lightgbm>=4.7.0",
+    "matplotlib>=3.11.2",
+    "mediapipe>=1.2.0",
+    "mlflow>=3.17.2",
+    "numpy>=2.5.4",
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.1.0",
+    "pyarrow>=25.0.1",
+    "pydantic>=2",
+    "pydantic-settings>=2.16.2",
+    "python-multipart>=0.0.33",
+    "pyyaml>=6.0.3",
+    "reportlab>=5.1.0",
+    "rich>=15.0.0",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "sqlmodel>=0.0.48",
+    "torch>=2.15.0",
+    "tqdm>=4.70.1",
+    "typer>=0.27.3",
+    "uvicorn[standard]>=0.54.0",
+    "websockets>=17.4",
+]
+
+[project.optional-dependencies]
+rtm = [
+    "onnxruntime>=1.31.1",
+    "rtmlib>=0.0.16",
+]
+ablation = [
+    "ultralytics>=8.4.197",
+]
+coreml = [
+    "coremltools>=9.0",
+]
+
+[project.scripts]
+rehabpose = "rehabpose.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+# --- uv -----------------------------------------------------------------------------------------
+[tool.uv]
+# Apple Silicon is the target platform; Linux is resolved only for Docker / CI (CPU-only torch).
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux'",
+]
+# No nvidia-* packages: ultralytics ([ablation] extra) declares nvidia-ml-py (NVML GPU telemetry);
+# the never-true marker drops it from the lock. ultralytics imports it lazily, CPU/MPS paths work.
+override-dependencies = ["nvidia-ml-py; sys_platform == 'never'"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+# --- ruff ---------------------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rehabpose"]
+
+# --- mypy ---------------------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+packages = ["rehabpose"]
+plugins = ["pydantic.mypy"]
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
+
+# `strict` cannot be set per module, so the strict flag set is spelled out for core and api.
+[[tool.mypy.overrides]]
+module = ["rehabpose.core.*", "rehabpose.api.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_return_any = true
+no_implicit_reexport = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+module = ["mediapipe.*", "lightgbm.*", "mlflow.*", "reportlab.*", "sklearn.*", "scipy.*", "rtmlib.*",
+          "ultralytics.*", "coremltools.*", "onnxruntime.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
+# --- pytest -------------------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["rehabpose"]
+branch = true
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "hypothesis>=6.170.14",
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.3",
+    "types-pyyaml>=6.0.12.20261030",
+]
