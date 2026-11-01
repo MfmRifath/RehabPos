@@ -1,0 +1,25 @@
+# OPTIONAL exercise. Engineering defaults (docs/04 §5.5) - NOT clinical prescriptions.
+# Primary is a ratio (wrist forward displacement / arm length); all FSM values provisional.
+id: forward_reach
+name: Forward reach
+view: sagittal
+primary_angle: reach_ratio
+unit: ratio
+target: 0.9
+fsm: { start_below: 0.15, peak_above_offset: 0.1, return_below: 0.2, min_excursion: 0.2, peak_drop: 0.03 }
+min_rep_s: 2.0
+max_peak_vel_dps: 1.0 # ratio units per second (provisional)
+rom_fraction: 0.9
+rules:
+  - { kind: frame, code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 15 }
+  - { kind: frame, code: SHOULDER_HIKE, measure: hike_ratio, op: drop_frac_gt, value: 0.15, unknown_in_views: [sagittal] }
+  - { kind: frame, code: TRUNK_ROTATION, measure: shoulder_width, op: drop_frac_gt, value: 0.15, unknown_in_views: [sagittal] }
+  - { kind: rep, code: INCOMPLETE_ROM, severity: info }
+  - { kind: rep, code: TOO_FAST }
+cue_texts:
+  TRUNK_LEAN: Reach with your arm, not your trunk
+  SHOULDER_HIKE: Relax your shoulder down
+  TRUNK_ROTATION: Keep your chest facing forward
+  INCOMPLETE_ROM: Reach a little further
+  TOO_FAST: Slow down, move with control
+reference: { source: synthetic, n: 64 } # SYNTHETIC until recorded

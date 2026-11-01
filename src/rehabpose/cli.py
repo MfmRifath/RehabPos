@@ -83,9 +83,66 @@ def extract(
 
 
 @app.command()
-def analyze() -> None:
+def analyze(
+    source: Annotated[
+        Path, typer.Argument(exists=True, dir_okay=False, help="Video or landmark .parquet.")
+    ],
+    exercise: Annotated[str, typer.Option(help="Exercise id (configs/exercises/<id>.yaml).")],
+    side: Annotated[str, typer.Option(help="Exercising side: L or R.")] = "R",
+    view: Annotated[
+        str | None, typer.Option(help="Camera view: sagittal | frontal (default: exercise's).")
+    ] = None,
+    out_dir: Annotated[
+        Path | None, typer.Option(help="Output folder (default reports/run_<stem>).")
+    ] = None,
+    model: Annotated[str, typer.Option(help="Pose model for video input.")] = "full",
+    download_model: Annotated[bool, typer.Option(help="Allow downloading the pose model.")] = False,
+    video: Annotated[bool, typer.Option(help="Render annotated.mp4.")] = True,
+) -> None:
     """Analyze a video or landmark parquet offline (reps, cues, annotated MP4)."""
-    _not_implemented("analyze", 3)
+    from rehabpose.core.exercise import load_exercises
+    from rehabpose.offline import analyze as run_analysis
+    from rehabpose.offline import extract_for_analysis
+    from rehabpose.pose.model_files import ModelFileMissingError
+
+    settings = get_settings()
+    exercises = load_exercises(settings.exercises_dir)
+    if exercise not in exercises:
+        raise typer.BadParameter(f"choose from {sorted(exercises)}", param_hint="--exercise")
+    if side not in ("L", "R"):
+        raise typer.BadParameter("must be L or R", param_hint="--side")
+    if view not in (None, "sagittal", "frontal"):
+        raise typer.BadParameter("must be sagittal or frontal", param_hint="--view")
+    out_dir = out_dir or Path("reports") / f"run_{source.stem}"
+
+    if source.suffix == ".parquet":
+        landmarks, source_video = source, None
+    else:
+        try:
+            landmarks = extract_for_analysis(
+                source, out_dir, model, settings.models_dir, download_model
+            )
+        except ModelFileMissingError as exc:
+            log.error("%s", exc)
+            raise typer.Exit(code=2) from exc
+        source_video = source
+    try:
+        res = run_analysis(
+            landmarks,
+            exercises[exercise],
+            side,  # type: ignore[arg-type]
+            out_dir,
+            view=view,  # type: ignore[arg-type]
+            video=source_video,
+            render_video=video,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    s = res.summary
+    typer.echo(
+        f"{exercise} {side}: {s['rep_count']} reps, labels {s['labels']}, "
+        f"mean ROM {s['mean_rom']}, quality {s['quality_score']} -> {res.out_dir}"
+    )
 
 
 @app.command()

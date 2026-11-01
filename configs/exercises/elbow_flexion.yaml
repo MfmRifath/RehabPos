@@ -1,0 +1,24 @@
+# Engineering defaults from the project spec (docs/04 §5.3) - NOT clinical prescriptions.
+id: elbow_flexion
+name: Elbow flexion
+view: sagittal
+allowed_views: [sagittal, frontal] # frontal allowed with a setup warning
+primary_angle: elbow_flexion
+unit: deg
+target: 130
+# FSM values reuse shoulder_flexion's (provisional).
+fsm: { start_below: 30, peak_above_offset: 15, return_below: 40 }
+min_rep_s: 1.5
+max_peak_vel_dps: 90
+rom_fraction: 0.9
+rules:
+  - { kind: frame, code: SHOULDER_DRIFT, measure: upper_arm_trunk_angle, op: gt, value: 20 }
+  - { kind: frame, code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 10 }
+  - { kind: rep, code: INCOMPLETE_ROM, severity: info }
+  - { kind: rep, code: TOO_FAST }
+cue_texts:
+  SHOULDER_DRIFT: Keep your upper arm by your side
+  TRUNK_LEAN: Keep your trunk upright
+  INCOMPLETE_ROM: Bend your elbow a little further
+  TOO_FAST: Slow down, move with control
+reference: { source: synthetic, n: 64 } # SYNTHETIC until recorded

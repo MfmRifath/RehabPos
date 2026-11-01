@@ -186,7 +186,10 @@ def render_stick_figure(frame: Frame, thickness: int = 6) -> NDArray[np.uint8]:
 
 
 def render_mannequin(frame: Frame) -> NDArray[np.uint8]:
-    """Draw a filled cartoon person (shirt, skin-tone limbs, face) that MediaPipe can detect.
+    """Draw a filled cartoon person (shirt, skin-tone forearms, face) MediaPipe can detect.
+
+    With the arm hanging over the torso (elevation 0) MediaPipe reports low elbow
+    visibility (~0.05-0.4), so detectable sequences should rest slightly abducted.
 
     Detected reliably in frontal view only (checked 2026-11-01 with pose_landmarker_full).
     """
@@ -246,3 +249,156 @@ def write_synthetic_video(
         for fr in frames:
             wr.write(render_stick_figure(fr, 4) if style == "stick" else render_mannequin(fr))
     return SyntheticVideo(Path(path), fps, frames)
+
+
+# --- rep sequences --------------------------------------------------------------------------
+
+EXERCISE_VIEW: dict[str, View] = {
+    "shoulder_flexion": "sagittal",
+    "shoulder_abduction": "frontal",
+    "elbow_flexion": "sagittal",
+    "shoulder_external_rotation": "frontal",
+    "forward_reach": "sagittal",
+}
+
+
+def _pose_for(exercise_id: str, value: float) -> dict[str, float]:
+    """SynthPose fields that put the exercise's primary measure at `value`."""
+    if exercise_id == "shoulder_flexion":
+        return {"elevation_deg": value, "plane_deg": 0.0}
+    if exercise_id == "shoulder_abduction":
+        return {"elevation_deg": value, "plane_deg": 90.0}
+    if exercise_id == "elbow_flexion":
+        return {"elbow_flexion_deg": value}
+    if exercise_id == "shoulder_external_rotation":
+        return {"elbow_flexion_deg": 90.0, "rotation_deg": value}
+    if exercise_id == "forward_reach":  # straight arm: reach ratio = sin(elevation)
+        return {"elevation_deg": float(np.degrees(np.arcsin(min(value, 1.0)))), "plane_deg": 0.0}
+    raise ValueError(exercise_id)
+
+
+@dataclass
+class RepSpec:
+    """One synthetic rep: primary peak, rise+fall duration (s), holds (s), compensation.
+
+    compensation maps SynthPose fields to the value reached at the rep's peak; the field ramps
+    from its rest value with the movement (min-jerk profile), e.g. {"trunk_lean_deg": 15}.
+    """
+
+    peak: float
+    duration_s: float = 8.0
+    hold_s: float = 0.0
+    pause_s: float = 1.5
+    compensation: dict[str, float | str] = field(default_factory=dict)
+
+
+def _min_jerk(s: NDArray[np.float64]) -> NDArray[np.float64]:
+    return 10 * s**3 - 15 * s**4 + 6 * s**5
+
+
+def rep_profile(
+    reps: Sequence[RepSpec], fps: float, rest_s: float, rest_value: float = 0.0
+) -> tuple[F, F, list[int]]:
+    """(primary value per frame, ramp 0..1, rep index or -1) arrays; reps start at rest_value."""
+    values: list[float] = []
+    ramps: list[float] = []
+    owner: list[int] = []
+
+    def add(n: int, v: Sequence[float] | float, r: Sequence[float] | float, k: int) -> None:
+        values.extend(np.broadcast_to(np.asarray(v, dtype=float), (n,)).tolist())
+        ramps.extend(np.broadcast_to(np.asarray(r, dtype=float), (n,)).tolist())
+        owner.extend([k] * n)
+
+    add(int(round(rest_s * fps)), rest_value, 0.0, -1)
+    for k, rep in enumerate(reps):
+        n_half = int(round(rep.duration_s / 2 * fps))
+        up = _min_jerk(np.linspace(0, 1, n_half, endpoint=False))
+        add(n_half, rest_value + (rep.peak - rest_value) * up, up, k)
+        add(int(round(rep.hold_s * fps)), rep.peak, 1.0, k)
+        down = _min_jerk(np.linspace(1, 0, n_half, endpoint=False))
+        add(n_half, rest_value + (rep.peak - rest_value) * down, down, k)
+        add(int(round(rep.pause_s * fps)), rest_value, 0.0, -1)
+    return np.array(values), np.array(ramps), owner
+
+
+def rep_sequence(
+    exercise_id: str,
+    reps: Sequence[RepSpec],
+    *,
+    fps: float = 30.0,
+    rest_s: float = 1.5,
+    rest_value: float = 0.0,
+    side: Side = "R",
+    noise_px: float = 1.0,
+    dropouts: Sequence[tuple[float, float]] = (),
+    seed: int = 0,
+    img_w: int = 1280,
+    img_h: int = 720,
+    px_per_m: float = 400.0,
+) -> list[Frame | None]:
+    """Frames of a synthetic set; None where a dropout window (t0, t1) in seconds applies."""
+    rng = np.random.default_rng(seed)
+    view = EXERCISE_VIEW[exercise_id]
+    values, ramps, owner = rep_profile(reps, fps, rest_s, rest_value)
+    frames: list[Frame | None] = []
+    for i, (v, r, k) in enumerate(zip(values, ramps, owner, strict=True)):
+        t = i / fps
+        if any(t0 <= t < t1 for t0, t1 in dropouts):
+            frames.append(None)
+            continue
+        fields: dict[str, float | str] = {"side": side, **_pose_for(exercise_id, float(v))}
+        if k >= 0:
+            for name, target in reps[k].compensation.items():
+                if isinstance(target, str):
+                    fields[name] = target
+                else:
+                    base = float(fields.get(name, getattr(SynthPose(), name)))  # type: ignore[arg-type]
+                    fields[name] = base + r * (target - base)
+        pose = SynthPose(**fields)  # type: ignore[arg-type]
+        frames.append(
+            make_frame(
+                pose,
+                view,
+                ts_ms=int(round(t * 1000)),
+                frame_idx=i,
+                noise_px=noise_px,
+                rng=rng,
+                img_w=img_w,
+                img_h=img_h,
+                px_per_m=px_per_m,
+            )
+        )
+    return frames
+
+
+def write_frames_parquet(path: Path, frames: Sequence[Frame | None], fps: float = 30.0) -> Path:
+    """Save synthetic frames as a landmark parquet (as `rehabpose extract` would)."""
+    import pyarrow.parquet as pq
+
+    from rehabpose.data.extract import frames_to_table
+
+    first = next(f for f in frames if f is not None)
+    rows = [
+        (i, int(round(i * 1000 / fps)), first.img_w, first.img_h, f) for i, f in enumerate(frames)
+    ]
+    meta = {"source": None, "fps": fps, "width": first.img_w, "height": first.img_h,
+            "pose_backend": "synthetic", "model": "ground-truth"}  # fmt: skip
+    pq.write_table(frames_to_table(rows, meta), path)
+    return Path(path)
+
+
+def write_frames_video(
+    path: Path, frames: Sequence[Frame | None], fps: float = 30.0, style: str = "mannequin"
+) -> Path:
+    """Render synthetic frames to an MP4 (mannequin is MediaPipe-detectable in frontal view)."""
+    from rehabpose.data.video_io import VideoWriter
+
+    first = next(f for f in frames if f is not None)
+    blank = np.full((first.img_h, first.img_w, 3), (200, 210, 220), dtype=np.uint8)
+    with VideoWriter(path, fps, (first.img_w, first.img_h)) as wr:
+        for f in frames:
+            if f is None:
+                wr.write(blank)
+            else:
+                wr.write(render_mannequin(f) if style == "mannequin" else render_stick_figure(f, 4))
+    return Path(path)

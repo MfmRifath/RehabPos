@@ -1,0 +1,24 @@
+# EXPERIMENTAL. Engineering defaults (docs/04 §5.4) - NOT clinical prescriptions.
+# Monocular forearm-rotation estimates are weak; excluded from accuracy targets.
+id: shoulder_external_rotation
+name: Shoulder external rotation
+view: frontal
+experimental: true
+primary_angle: forearm_rotation # 0 = forearm forward, + = lateral (3D world)
+unit: deg
+target: 60 # provisional
+fsm: { start_below: 15, peak_above_offset: 15, return_below: 20, min_excursion: 20 } # provisional
+min_rep_s: 2.0
+max_peak_vel_dps: 90
+rom_fraction: 0.9
+rules:
+  - { kind: frame, code: ELBOW_AWAY, measure: elbow_away, op: gt, value: 0.25 }
+  - { kind: frame, code: TRUNK_ROTATION, measure: shoulder_width, op: drop_frac_gt, value: 0.15, unknown_in_views: [sagittal] }
+  - { kind: rep, code: INCOMPLETE_ROM, severity: info }
+  - { kind: rep, code: TOO_FAST }
+cue_texts:
+  ELBOW_AWAY: Keep your elbow tucked in at your side
+  TRUNK_ROTATION: Keep your chest facing the camera
+  INCOMPLETE_ROM: Rotate a little further out
+  TOO_FAST: Slow down, move with control
+reference: { source: synthetic, n: 64 } # SYNTHETIC until recorded

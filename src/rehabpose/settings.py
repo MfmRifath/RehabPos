@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     data_dir: Path = Path("data")
     models_dir: Path = Path("data/models")
+    exercises_dir: Path = Path("configs/exercises")
     db_url: str = "sqlite:///data/rehabpose.db"
     pose_model: PoseModelVariant = "full"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])

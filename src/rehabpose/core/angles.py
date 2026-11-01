@@ -6,6 +6,7 @@ so a single frame (33, D) yields a 0-d array and a sequence (T, 33, D) yields sh
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Literal
 
@@ -30,6 +31,8 @@ MEASURES = (
     "shoulder_width",
     "hike_ratio",
     "forearm_rotation",
+    "plane_drift_m",
+    "elbow_away",
 )
 
 
@@ -37,12 +40,31 @@ def _f(x: object) -> FloatArray:
     return np.asarray(x, dtype=np.float64)
 
 
+def _angle_single(u: list[float], v: list[float]) -> float:
+    """angle_between for one pair of vectors without numpy overhead (hot path)."""
+    if len(u) == 2:
+        cross = abs(u[0] * v[1] - u[1] * v[0])
+    elif len(u) == 3:
+        cx = u[1] * v[2] - u[2] * v[1]
+        cy = u[2] * v[0] - u[0] * v[2]
+        cz = u[0] * v[1] - u[1] * v[0]
+        cross = math.sqrt(cx * cx + cy * cy + cz * cz)
+    else:
+        raise ValueError(f"vectors must be 2D or 3D, got dimension {len(u)}")
+    if not any(u) or not any(v):
+        return math.nan
+    return math.degrees(math.atan2(cross, sum(a * b for a, b in zip(u, v, strict=True))))
+
+
 def angle_between(u: FloatArray, v: FloatArray) -> FloatArray:
     """Unsigned angle between vectors along the last axis (2D or 3D), degrees in [0, 180].
 
     Uses atan2(|u x v|, u . v) for numerical stability; NaN if either vector has zero length.
     """
-    u, v = np.broadcast_arrays(_f(u), _f(v))
+    u, v = _f(u), _f(v)
+    if u.ndim == 1 and v.ndim == 1 and u.shape == v.shape:
+        return _f(_angle_single(u.tolist(), v.tolist()))
+    u, v = np.broadcast_arrays(u, v)
     if u.shape[-1] == 2:
         cross = np.abs(u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0])
     elif u.shape[-1] == 3:
@@ -158,6 +180,20 @@ def forearm_rotation(world: FloatArray, side: Side) -> FloatArray:
     return _f(np.degrees(np.arctan2(np.sum(f * lat, axis=-1), np.sum(f * fw, axis=-1))))
 
 
+def plane_drift(world: FloatArray, side: Side) -> FloatArray:
+    """Experimental: |wrist_z - shoulder_z| in world metres (out-of-plane arm motion)."""
+    j = side_joints(side)
+    p = _f(world)
+    return _f(np.abs(p[..., j.wrist, 2] - p[..., j.shoulder, 2]))
+
+
+def elbow_away(points: FloatArray, side: Side) -> FloatArray:
+    """|elbow_x - hip_x| / body_scale (2D): how far the elbow leaves the side of the trunk."""
+    j = side_joints(side)
+    p = _f(points)
+    return _f(np.abs(p[..., j.elbow, 0] - p[..., j.hip, 0]) / body_scale(p))
+
+
 def reach_ratio(points: FloatArray, side: Side, rest_wrist: FloatArray) -> FloatArray:
     """Optional: horizontal wrist displacement from its rest position / arm length (2D)."""
     j = side_joints(side)
@@ -179,6 +215,9 @@ def required_landmarks(measure: str, side: Side) -> tuple[int, ...]:
         "shoulder_width": (LM.LEFT_SHOULDER, LM.RIGHT_SHOULDER),
         "hike_ratio": (j.ear, LM.LEFT_SHOULDER, LM.RIGHT_SHOULDER),
         "forearm_rotation": (LM.LEFT_SHOULDER, LM.RIGHT_SHOULDER, j.elbow, j.wrist),
+        "plane_drift_m": (j.shoulder, j.wrist),
+        "elbow_away": (*torso, j.elbow),
+        "reach_ratio": (j.shoulder, j.elbow, j.wrist),
     }
     if measure not in table:
         raise ValueError(f"unknown measure {measure!r}")
@@ -189,7 +228,7 @@ def is_visible(
     visibility: FloatArray, indices: tuple[int, ...], threshold: float = VISIBILITY_THRESHOLD
 ) -> bool:
     """True if every landmark in `indices` has visibility >= threshold."""
-    return bool(np.all(_f(visibility)[list(indices)] >= threshold))
+    return all(visibility[i] >= threshold for i in indices)
 
 
 def compute_measures(
@@ -197,10 +236,12 @@ def compute_measures(
     side: Side,
     space: Space = "2d",
     threshold: float = VISIBILITY_THRESHOLD,
+    names: tuple[str, ...] = MEASURES,
 ) -> dict[str, float | None]:
-    """All measures for one frame; a measure is None ("unknown") if visibility gating fails.
+    """Measures `names` for one frame; a measure is None ("unknown") if visibility gating fails.
 
-    Angles in degrees; shoulder_width in pixels (2d) or metres (3d); forearm_rotation always 3D.
+    Angles in degrees; shoulder_width in pixels (2d) or metres (3d); forearm_rotation and
+    plane_drift_m always use 3D world landmarks; hike_ratio and elbow_away always 2D.
     """
     pts = frame.pixel_xy if space == "2d" else frame.world_xyz
     funcs: dict[str, Callable[[], FloatArray]] = {
@@ -211,9 +252,12 @@ def compute_measures(
         "shoulder_width": lambda: shoulder_width(pts),
         "hike_ratio": lambda: hike_ratio(frame.pixel_xy, side),
         "forearm_rotation": lambda: forearm_rotation(frame.world_xyz, side),
+        "plane_drift_m": lambda: plane_drift(frame.world_xyz, side),
+        "elbow_away": lambda: elbow_away(frame.pixel_xy, side),
     }
     out: dict[str, float | None] = {}
-    for name, fn in funcs.items():
+    for name in names:
+        fn = funcs[name]
         if not is_visible(frame.visibility, required_landmarks(name, side), threshold):
             out[name] = None
             continue

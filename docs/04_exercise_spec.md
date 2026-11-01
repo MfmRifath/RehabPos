@@ -29,9 +29,10 @@ Derived points: `mid_shoulder = (lm11 + lm12)/2`, `mid_hip = (lm23 + lm24)/2`.
 - **Visibility gate:** if any landmark required by a measure has visibility < **0.6**, that measure is
   `unknown` (`null` in the WS payload). Rules depending on it do not fire, so no corrective cue is
   given. A setup cue is given instead if the condition persists.
-- **View check:** the frontal/sagittal heuristic uses the shoulder-width/torso-length ratio. A wide
-  ratio means frontal, a narrow one means sagittal. A mismatch with the exercise's `view` sets
-  `quality.view_ok = false`. Rules marked view-dependent then become `unknown`.
+- **View check:** the frontal/sagittal heuristic uses the 2D shoulder-width/torso-length ratio:
+  ≥ 0.45 is frontal, ≤ 0.25 is sagittal, and anything in between is ambiguous (accepted). A mismatch
+  with the session view that lasts ≥ 1.0 s sets `quality.view_ok = false` and raises the setup cue
+  `SETUP_VIEW_<VIEW>`. Rules list the views in which they are `unknown` (`unknown_in_views`).
 - **Calibration:** during the first **1.0 s** of a set, the user is at rest. The engine averages:
   - `baseline_trunk_tilt` (deg)
   - `baseline_ear_shoulder` (vertical ear–shoulder distance on the exercising side, px)
@@ -81,9 +82,20 @@ A rep candidate becomes a rep only if:
 - peak ≥ `start_below + 20°`.
 
 Partial reps, where the angle rises but never reaches the peak threshold, are recorded as
-`incomplete_rom` if the peak ≥ `start_below + 20°`. Otherwise they are ignored. The FSM runs on the
-**smoothed** primary angle. Unknown frames hold the current state. If more than 0.5 s of frames is
-unknown, the FSM resets to `rest` and the filter resets.
+`incomplete_rom` if the peak ≥ `start_below + min_excursion` (20° by default). Otherwise they are
+ignored. The FSM runs on the **smoothed** primary angle. Implementation details
+(`rehabpose.core.reps`):
+
+- **Arming:** at the start of a set and after a reset, a rep can only begin once the primary has
+  been seen at or below `start_below`. A rep observed only from its middle is never counted. A rep
+  that finishes normally re-arms immediately, so resting slightly above `start_below` between reps
+  still works.
+- **Start re-anchoring:** while ascending, the start moves to the lowest point seen. Pauses near
+  rest therefore don't inflate the rep duration.
+- **Peak hysteresis:** the peak ends when the value drops `peak_drop` (5° by default) below the
+  running maximum. A dip that rises again by more than `peak_drop`, without falling below
+  `return_below`, resumes the same rep instead of splitting it.
+- **Unknown frames** hold the state. If more than 0.5 s is unknown, the FSM resets to `rest`.
 
 Each exercise YAML defines `fsm: {start_below, peak_above_offset, return_below}`. Flexion uses the
 spec's defaults (start < 30, peak > target − 15, return < 40). The other exercises use the same values
@@ -177,7 +189,16 @@ the UI, and its measures are excluded from accuracy targets until they are valid
 - **Confidence:** for rules, this is the minimum visibility of the involved landmarks, scaled to
   [0, 1]. For the model, it is the predicted probability.
 - **Unknown handling:** a rule whose inputs are `unknown` or view-dependent in the wrong view yields
-  no flag and no cue.
+  no flag and no cue. Baseline rules (`abs_delta_gt`, `drop_frac_gt`) stay unknown until
+  calibration is done.
+- **Experimental rules** (`experimental: true`, currently PLANE_DRIFT) are **off by default**
+  (`EngineConfig.experimental_rules`). With real MediaPipe on a synthetic test video, world depth
+  raised PLANE_DRIFT at every peak of correct reps (2026-11-01, phase 3).
+- **Setup cues:** `SETUP_VISIBILITY` (primary landmarks invisible for ≥ 0.5 s, severity error),
+  `SETUP_VIEW_SAGITTAL` / `SETUP_VIEW_FRONTAL` (view mismatch ≥ 1.0 s), `CALIBRATING` (first
+  second of a set).
+- **Rep-level flags** (INCOMPLETE_ROM, TOO_FAST) are raised at rep end and stay active for 2.0 s,
+  so they can pass the cue debounce.
 - **Priority** (highest first): visibility/setup > `TRUNK_*` > `SHOULDER_HIKE` > `ELBOW_*` (incl.
   `SHOULDER_DRIFT`) > `TOO_FAST` > `INCOMPLETE_ROM`. `PLANE_DRIFT` ranks with `SHOULDER_*`.
 - **Display:** at most one cue at a time.
@@ -204,40 +225,48 @@ the UI, and its measures are excluded from accuracy targets until they are valid
 | label | enum | `correct` \| `incomplete_rom` \| `too_fast` \| `compensated` |
 | dtw_similarity | 0–1 | similarity to the exercise reference rep |
 
-Label assignment (proposed; to be confirmed in phase 3): `compensated` if any `TRUNK_*`,
-`SHOULDER_*` or `ELBOW_*` flag was raised. Otherwise `too_fast` if TOO_FAST. Otherwise
-`incomplete_rom` if INCOMPLETE_ROM. Otherwise `correct`. This mirrors the cue priority.
+Label assignment (implemented in `rehabpose.core.rules.label_rep`): `compensated` if any `TRUNK_*`,
+`SHOULDER_*`, `ELBOW_*` or `PLANE_*` flag was raised during the rep. Otherwise `too_fast` if
+TOO_FAST. Otherwise `incomplete_rom` if INCOMPLETE_ROM. Otherwise `correct`. This mirrors the cue
+priority.
 
 ## 9. DTW similarity
 1. Take the rep's smoothed primary-angle curve and z-normalize it (zero mean, unit variance).
 2. Take the exercise reference rep curve from YAML (`reference.curve`) and z-normalize it the same way.
-3. Compute DTW with a Sakoe–Chiba band (default 10 % of the longer length). Normalize the distance
-   by the warping path length.
+3. Resample both curves to 64 samples, then compute DTW (|a−b| cost) with a Sakoe–Chiba band of
+   10 % of the longer length. Normalize the distance by the warping path length.
 4. `similarity = 1 / (1 + normalized_distance)`.
 
 Until real reference reps are recorded, the reference curves are **synthetic** (generated
 minimum-jerk profiles), and every YAML says so (`reference.source: synthetic`).
 
-## 10. Exercise YAML schema (sketch)
+## 10. Exercise YAML schema
+The schema is defined by the pydantic models in `rehabpose.core.exercise` (extra keys are
+rejected). The shipped files are in `configs/exercises/`. Example (shoulder flexion, abridged):
 ```yaml
-id: shoulder_flexion
+id: shoulder_flexion            # must equal the file name
 name: Shoulder flexion
-view: sagittal              # sagittal | frontal
+view: sagittal                  # sagittal | frontal; allowed_views: [...] for alternatives
 primary_angle: upper_arm_trunk_angle
-target: 150                 # degrees
-fsm: {start_below: 30, peak_above_offset: 15, return_below: 40}
+unit: deg                       # deg | ratio
+target: 150
+fsm: {start_below: 30, peak_above_offset: 15, return_below: 40}   # + min_excursion, peak_drop
 min_rep_s: 2.0
 max_peak_vel_dps: 90
+rom_fraction: 0.9               # INCOMPLETE_ROM if peak < rom_fraction * target
 rules:
-  - {code: ELBOW_BEND, measure: elbow_interior, op: lt, value: 160, min_duration_s: 0.3, severity: warn}
-  - {code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 10, baseline: true, severity: warn}
-  - {code: INCOMPLETE_ROM, scope: rep, op: peak_lt_frac_target, value: 0.9, severity: info}
-  - {code: TOO_FAST, scope: rep, min_duration_s: 2.0, max_peak_vel_dps: 90, severity: warn}
-  - {code: SHOULDER_HIKE, unknown_in_views: [sagittal]}
-cue_texts: {ELBOW_BEND: "Keep your elbow straight", TRUNK_LEAN: "Keep your trunk upright"}
-reference: {source: synthetic, fps: 30, curve: [...]}
+  - {kind: frame, code: ELBOW_BEND, measure: elbow_interior, op: lt, value: 160, min_duration_s: 0.3}
+  - {kind: frame, code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 10}
+  - {kind: frame, code: SHOULDER_HIKE, measure: hike_ratio, op: drop_frac_gt, value: 0.15,
+     unknown_in_views: [sagittal]}
+  - {kind: rep, code: INCOMPLETE_ROM, severity: info}
+  - {kind: rep, code: TOO_FAST}
+cue_texts: {ELBOW_BEND: "Keep your elbow straight", ...}   # required for every rule code
+reference: {source: synthetic, n: 64}   # or {source: recorded, curve: [...]}
 ```
-The final schema is defined by the pydantic models in `rehabpose.core.rules` (phase 3).
+Frame-rule ops are `lt`, `gt`, `abs_delta_gt` (|value − baseline| > v) and `drop_frac_gt`
+(1 − value/baseline > v). Extra measures for rules are `plane_drift_m` (world |W_z − S_z|),
+`elbow_away` (|E_x − H_x| / body scale) and `shoulder_width`.
 
 ## 11. Known limitations
 - Monocular 2D angles depend on the view. Out-of-plane motion foreshortens angles.

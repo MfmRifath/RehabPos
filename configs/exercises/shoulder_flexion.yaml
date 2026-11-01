@@ -1,0 +1,26 @@
+# Engineering defaults from the project spec (docs/04 §5.1) - NOT clinical prescriptions.
+id: shoulder_flexion
+name: Shoulder flexion
+view: sagittal
+primary_angle: upper_arm_trunk_angle
+unit: deg
+target: 150 # degrees
+fsm: { start_below: 30, peak_above_offset: 15, return_below: 40 }
+min_rep_s: 2.0
+max_peak_vel_dps: 90
+rom_fraction: 0.9
+rules:
+  - { kind: frame, code: ELBOW_BEND, measure: elbow_interior, op: lt, value: 160, min_duration_s: 0.3 }
+  - { kind: frame, code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 10 }
+  # Shoulder hike is not observable side-on: always "unknown" in sagittal view.
+  - { kind: frame, code: SHOULDER_HIKE, measure: hike_ratio, op: drop_frac_gt, value: 0.15, unknown_in_views: [sagittal] }
+  - { kind: rep, code: INCOMPLETE_ROM, severity: info }
+  - { kind: rep, code: TOO_FAST }
+cue_texts:
+  ELBOW_BEND: Keep your elbow straight
+  TRUNK_LEAN: Keep your trunk upright
+  SHOULDER_HIKE: Relax your shoulder down
+  INCOMPLETE_ROM: Try to lift a little higher
+  TOO_FAST: Slow down, move with control
+# SYNTHETIC minimum-jerk reference rep until a recorded reference replaces it.
+reference: { source: synthetic, n: 64 }

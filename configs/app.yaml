@@ -5,6 +5,7 @@ port: 8000
 log_level: INFO
 data_dir: data
 models_dir: data/models
+exercises_dir: configs/exercises
 db_url: sqlite:///data/rehabpose.db
 pose_model: full # lite | full | heavy (MediaPipe pose_landmarker_*.task)
 cors_origins:

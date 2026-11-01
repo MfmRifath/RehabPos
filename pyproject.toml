@@ -137,6 +137,7 @@ dev = [
     "httpx>=0.28.1",
     "hypothesis>=6.170.14",
     "mypy>=2.4.1",
+    "pandas-stubs>=3.1.0.261029",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1",

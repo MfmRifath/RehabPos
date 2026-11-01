@@ -1,0 +1,28 @@
+# Engineering defaults from the project spec (docs/04 §5.2) - NOT clinical prescriptions.
+id: shoulder_abduction
+name: Shoulder abduction
+view: frontal
+primary_angle: upper_arm_trunk_angle # frontal-plane projection in 2D
+unit: deg
+target: 130
+# FSM values reuse shoulder_flexion's (provisional; not specified for abduction).
+fsm: { start_below: 30, peak_above_offset: 15, return_below: 40 }
+min_rep_s: 2.0
+max_peak_vel_dps: 90
+rom_fraction: 0.9
+rules:
+  - { kind: frame, code: TRUNK_LEAN, measure: trunk_tilt, op: abs_delta_gt, value: 8 }
+  - { kind: frame, code: SHOULDER_HIKE, measure: hike_ratio, op: drop_frac_gt, value: 0.15, unknown_in_views: [sagittal] }
+  - { kind: frame, code: ELBOW_BEND, measure: elbow_interior, op: lt, value: 160, min_duration_s: 0.3 }
+  # Experimental: monocular depth is unreliable.
+  - { kind: frame, code: PLANE_DRIFT, measure: plane_drift_m, op: gt, value: 0.15, experimental: true }
+  - { kind: rep, code: INCOMPLETE_ROM, severity: info }
+  - { kind: rep, code: TOO_FAST }
+cue_texts:
+  TRUNK_LEAN: Keep your trunk upright, don't lean sideways
+  SHOULDER_HIKE: Relax your shoulder down
+  ELBOW_BEND: Keep your elbow straight
+  PLANE_DRIFT: Keep your arm out to the side
+  INCOMPLETE_ROM: Try to lift a little higher
+  TOO_FAST: Slow down, move with control
+reference: { source: synthetic, n: 64 } # SYNTHETIC until recorded
