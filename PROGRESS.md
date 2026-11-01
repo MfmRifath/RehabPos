@@ -4,8 +4,8 @@
 | Phase | Title | Status | Tag |
 |---|---|---|---|
 | 0 | Bootstrap | done | phase-0 |
-| 1 | Documentation | next | |
-| 2 | Pose & geometry core | todo | |
+| 1 | Documentation | done | phase-1 |
+| 2 | Pose & geometry core | next | |
 | 3 | Reps, tempo, DTW, rules, offline analysis | todo | |
 | 4 | Data tooling | todo | |
 | 5 | Backend | todo | |
@@ -26,6 +26,14 @@
 - [x] CLAUDE.md, .claude/settings.json PostToolUse ruff-format hook
 - [x] smoke tests, verification, commit + tag phase-0
 
+## Phase 1 tasks
+- [x] docs/01–09 from spec Sections 2, 3, 6 (overview, SRS with FR/NFR + user stories, architecture,
+      exercise spec, data plan, ML/eval plan, testing, deployment, ethics/privacy)
+- [x] Mermaid: component flowchart, live + upload sequences, ER diagram, rep FSM state diagram
+- [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
+- [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
+- [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
 ## Decisions
 - 2026-11-01: Node 24.19 (installed LTS) instead of 22. `.nvmrc` = 24, frontend `engines.node >= 22`.
 - 2026-11-01: The uv lock is limited to darwin-arm64 + linux. Linux torch resolves from the
@@ -36,6 +44,14 @@
 - 2026-11-01: mypy `strict` can't be set per module, so the strict flag set is listed explicitly for
   `rehabpose.core.*` / `rehabpose.api.*`.
 - 2026-11-01: pre-commit ruff/mypy run as local `uv run` hooks so their versions match uv.lock.
+- 2026-11-01 (P1): Mermaid is checked structurally by tests/unit/test_docs.py (diagram type, balanced
+  quotes/brackets, declared sequence participants, subgraph/end pairs). mermaid-cli (Chromium) was not
+  installed. Diagrams have not been rendered yet; check them on GitHub or with mermaid-cli if approved later.
+- 2026-11-01 (P1): Proposed rep label precedence: compensated > too_fast > incomplete_rom > correct,
+  mirroring cue priority (docs/04 §8). To be confirmed in phase 3.
+- 2026-11-01 (P1): FSM thresholds for exercises other than shoulder_flexion reuse flexion's values
+  (30/15/40) and are marked provisional (docs/04 §4). External-rotation target and forward-reach FSM
+  units are still to be decided in phase 3.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
