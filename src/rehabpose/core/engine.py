@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -115,8 +115,24 @@ def detect_view(points: angles.FloatArray, cfg: EngineConfig) -> View | None:
     return None
 
 
+class FlagModel(Protocol):
+    """Optional learned flagger (implemented in rehabpose.ml.online; core stays torch-free)."""
+
+    def update(self, t_s: float, frame: Frame | None) -> list[Flag]:
+        """Feed one raw (unsmoothed) frame; return currently raised model flags."""
+        ...
+
+    def reset(self) -> None:
+        """Forget streaming state."""
+        ...
+
+
 class SessionEngine:
-    """Processes frames of one session (exercise + side + camera view) in time order."""
+    """Processes frames of one session (exercise + side + camera view) in time order.
+
+    With a `flag_model`, model flags are fused with rule flags by OR: a code raised by either
+    source is active (rule flags win when both raise the same code).
+    """
 
     def __init__(
         self,
@@ -125,6 +141,7 @@ class SessionEngine:
         view: View | None = None,
         config: EngineConfig | None = None,
         auto_start: bool = True,
+        flag_model: FlagModel | None = None,
     ) -> None:
         self.exercise = exercise
         self.side = side
@@ -133,6 +150,7 @@ class SessionEngine:
         if self.view not in exercise.views:
             raise ValueError(f"{exercise.id} does not support the {self.view} view")
         self.cfg = config or EngineConfig()
+        self.flag_model = flag_model
         self.reps: list[RepRecord] = []
         self.events: list[Event] = []
         self._reference = np.asarray(exercise.reference_curve())
@@ -166,6 +184,8 @@ class SessionEngine:
         self._calib.reset()
         self._velocity.reset()
         self._cues.reset()
+        if self.flag_model is not None:
+            self.flag_model.reset()
         self._rep_codes: set[str] = set()
         self._rep_flags: list[Flag] = []
         self._rep_flags_until = -np.inf
@@ -229,6 +249,7 @@ class SessionEngine:
         measures: dict[str, float | None] = {}
         conf: dict[str, float] = {}
         detected_view: View | None = None
+        raw_frame = frame
         if frame is not None:
             if cfg.smoothing:
                 frame = self._smoother(frame)
@@ -253,6 +274,11 @@ class SessionEngine:
             cand = self._counter.update(t, primary, vel)
 
             frame_flags, _ = self._rules.evaluate(t, measures, conf, self._calib.baseline)
+            if self.flag_model is not None:
+                rule_codes = {f.code for f in frame_flags}
+                frame_flags += [
+                    f for f in self.flag_model.update(t, raw_frame) if f.code not in rule_codes
+                ]
             if self._counter.phase != "rest" or cand is not None:
                 self._rep_codes.update(f.code for f in frame_flags)
             elif self._counter.phase == "rest":

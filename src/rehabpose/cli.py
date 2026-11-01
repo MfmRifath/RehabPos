@@ -299,16 +299,59 @@ def data_schema() -> None:
     typer.echo(schema_json())
 
 
-@app.command()
-def train() -> None:
-    """Train a temporal form-quality model."""
-    _not_implemented("train", 7)
+QUICK_OVERRIDES = {
+    "data": {"n_subjects": 6, "sets_per_exercise": 1, "reps_per_set": 6},
+    "optim": {"epochs": 3, "patience": 2},
+    "seeds": [0],
+    "cv": {"k": 2},
+}
 
 
 @app.command()
-def evaluate() -> None:
-    """Evaluate models with subject-wise cross-validation."""
-    _not_implemented("evaluate", 7)
+def train(
+    config: Annotated[Path, typer.Option(exists=True, dir_okay=False, help="configs/train/*.yaml")],
+    quick: Annotated[bool, typer.Option(help="Tiny data/epochs smoke run.")] = False,
+    mlflow: Annotated[bool, typer.Option(help="Log to the local MLflow store (mlruns/).")] = True,
+) -> None:
+    """Train + evaluate a model with subject-wise CV and a held-out test (SYNTHETIC data now)."""
+    import sys
+
+    from rehabpose.ml.evaluate import run_experiment
+    from rehabpose.ml.train import TrainConfig, load_config
+
+    cfg = load_config(config)
+    if quick:
+        data = cfg.model_dump()
+        for key, val in QUICK_OVERRIDES.items():
+            data[key] = {**data[key], **val} if isinstance(val, dict) else val
+        cfg = TrainConfig.model_validate(data)
+    res = run_experiment(cfg, use_mlflow=mlflow, command=" ".join(["rehabpose", *sys.argv[1:]]))
+    m = res.metrics
+    typer.echo(
+        f"[SYNTHETIC] {cfg.name}: CV val macro-F1 {m['cv_val_macro_f1']['mean']:.3f}, "
+        f"test macro-F1 (seed 0) {m['test_seed0']['macro_f1']:.3f}; report {res.report_path}; "
+        f"MLflow run {res.run_id or '-'}"
+    )
+
+
+@app.command()
+def evaluate(
+    ablation: Annotated[
+        list[str], typer.Option(help="smoothing | space | window | backend | pretraining | all")
+    ],
+    quick: Annotated[bool, typer.Option(help="Reduced sizes (smoke run).")] = False,
+) -> None:
+    """Run ablations and write reports/ablations/ablations-<stamp>.md (SYNTHETIC)."""
+    import sys
+
+    from rehabpose.ml.ablations import ABLATIONS, run_ablations
+
+    names = list(ABLATIONS) if "all" in ablation else ablation
+    bad = sorted(set(names) - set(ABLATIONS))
+    if bad:
+        raise typer.BadParameter(f"unknown {bad}; choose from {ABLATIONS} or all")
+    path = run_ablations(names, quick, command=" ".join(["rehabpose", *sys.argv[1:]]))
+    typer.echo(f"[SYNTHETIC] ablations written to {path}")
 
 
 @app.command()

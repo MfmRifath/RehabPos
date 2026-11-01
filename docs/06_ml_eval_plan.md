@@ -67,8 +67,8 @@ synthetic data are always labelled "SYNTHETIC — not a result".
 ## 7. Online use (`rehabpose.ml.online`)
 - A streaming wrapper keeps a ring buffer of features and runs the model every `stride` frames.
 - Model flags carry `source: "model"` and confidence = probability.
-- Fusion with rules is configurable: `rule OR (p > threshold)`, with a per-code threshold chosen on
-  validation folds only.
+- Fusion with rules is configurable: `rule OR (p > threshold)`, with one threshold for all codes
+  (default 0.5). Per-code thresholds chosen on validation folds are planned but not implemented.
 - Models are exported to TorchScript and ONNX (`rehabpose.ml.export`) with a parity test
   (`|diff| < 1e-4` on fixtures).
 
@@ -80,6 +80,24 @@ synthetic data are always labelled "SYNTHETIC — not a result".
 | Smoothing | One Euro on/off, parameter sweep |
 | Window length | 30 / 45 / 60 frames |
 | Pretraining | with / without pretraining on public skeleton datasets |
+
+## 8b. Implementation notes (phase 7)
+- **Data today is synthetic.** `rehabpose.ml.datasets.synthetic_corpus` varies body size, camera
+  scale, landmark noise, tempo and arm per subject, and takes labels from the generator, not from
+  the rule engine. Own-data training raises `NotImplementedError` until labelled recordings exist.
+- **Features** live in `rehabpose.core.features` (pure numpy) so training and live inference share
+  one implementation. Left-arm data is mirrored to a canonical right arm.
+- **Streaming labels:** a code is positive at frame t when its compensation has reached at least
+  half of its peak amplitude.
+- **Final models** train on fold 0's training subjects and early-stop on its validation subjects.
+  Test subjects are used only for the final evaluation.
+- **Online:** `rehabpose.ml.online.TemporalFlagModel` plugs into `SessionEngine(flag_model=...)`.
+  Model flags are OR-fused with rule flags, and rule flags win when both raise a code. Only
+  stream-task bundles can be used online. Nothing enables a model by default.
+- **Tooling deviations:** MLflow on SQLite, ONNX preferred online, `n_jobs=1` for LightGBM
+  ([ADR 0004](adr/0004-ml-tooling-deviations.md)).
+- **Not implemented yet:** RTMPose and YOLO-pose adapters (reported as not installed), pretraining
+  on public skeleton datasets (no approved data), and `/ws/frames/{sid}`.
 
 ## 9. Reporting rules
 - Every number in docs comes from `reports/eval/*.md`, which cites MLflow run ids and the command used.

@@ -1,0 +1,13 @@
+# SYNTHETIC data until real recordings are approved; results are not results.
+name: rep_stgcn
+task: rep
+model: stgcn
+space: 2d
+data: {source: synthetic, n_subjects: 16, sets_per_exercise: 2, reps_per_set: 8, seed: 0}
+stream: {length: 45, stride: 5}
+augment: {jitter: 0.01, scale: 0.1, rotate_deg: 10, time_warp: 0.2, joint_dropout: 0.05}
+optim: {lr: 0.001, weight_decay: 0.0001, epochs: 40, batch_size: 32, patience: 6}
+seeds: [0, 1, 2]
+cv: {test_fraction: 0.2, k: 5}
+threshold: 0.5
+device: auto
