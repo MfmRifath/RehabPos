@@ -44,18 +44,28 @@ def test_result_to_frame_rejects_wrong_count() -> None:
 
 
 @pytest.mark.mediapipe
-def test_real_mediapipe_on_synthetic_video(tmp_path: Path) -> None:
-    path = model_path("full", get_settings().models_dir)
+@pytest.mark.parametrize("variant", ["lite", "full", "heavy"])
+def test_real_mediapipe_on_synthetic_mannequin(tmp_path: Path, variant: str) -> None:
+    """Real model end-to-end on a drawn cartoon: a sanity check, not an accuracy result."""
+    path = model_path(variant, get_settings().models_dir)  # type: ignore[arg-type]
     if not path.is_file():
         pytest.skip(f"model file {path} not present (download needs owner consent)")
-    from rehabpose.data.extract import extract_video
+    from rehabpose.core.angles import upper_arm_trunk_angle
+    from rehabpose.data.extract import extract_video, load_frames
     from rehabpose.pose.mediapipe_pose import MediaPipePose
 
-    vid = write_synthetic_video(tmp_path / "stick.mp4", n_frames=30)
+    vid = write_synthetic_video(tmp_path / "m.mp4", n_frames=60, style="mannequin")
     with MediaPipePose(path) as est:
         res = extract_video(vid.path, est, tmp_path / "out.parquet")
-    assert res.n_frames == 30
-    if res.n_detected == 0:
-        pytest.skip(
-            "MediaPipe did not detect the OpenCV stick figure; pipeline covered by mock test"
-        )
+    print(f"{variant}: detected {res.n_detected}/{res.n_frames}")
+    assert res.n_frames == 60
+    assert res.n_detected >= 48  # >= 80 % of frames
+
+    errs = [
+        float(upper_arm_trunk_angle(fr.pixel_xy, "R") - upper_arm_trunk_angle(gt.pixel_xy, "R"))
+        for fr, gt in zip(load_frames(tmp_path / "out.parquet"), vid.frames, strict=True)
+        if fr is not None and fr.visibility[[12, 14, 24]].min() >= 0.6
+    ]
+    mae = float(np.mean(np.abs(errs)))
+    print(f"{variant}: cartoon abduction angle MAE {mae:.1f} deg over {len(errs)} frames")
+    assert len(errs) >= 30 and mae < 15.0  # loose: cartoon, not a human

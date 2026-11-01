@@ -185,6 +185,33 @@ def render_stick_figure(frame: Frame, thickness: int = 6) -> NDArray[np.uint8]:
     return img
 
 
+def render_mannequin(frame: Frame) -> NDArray[np.uint8]:
+    """Draw a filled cartoon person (shirt, skin-tone limbs, face) that MediaPipe can detect.
+
+    Detected reliably in frontal view only (checked 2026-11-01 with pose_landmarker_full).
+    """
+    img = np.full((frame.img_h, frame.img_w, 3), (200, 210, 220), dtype=np.uint8)
+    p = frame.pixel_xy.round().astype(int)
+    skin, shirt, pants = (140, 170, 220), (160, 90, 40), (60, 50, 40)
+    cv2.fillConvexPoly(img, np.array([p[11], p[12], p[24], p[23]]), shirt)
+    limbs = [
+        (23, 25, pants, 34), (25, 27, pants, 30), (24, 26, pants, 34), (26, 28, pants, 30),
+        (11, 13, shirt, 30), (12, 14, shirt, 30), (13, 15, skin, 24), (14, 16, skin, 24),
+    ]  # fmt: skip
+    for a, b, color, t in limbs:
+        cv2.line(img, tuple(p[a]), tuple(p[b]), color, t, cv2.LINE_AA)
+    for i in (15, 16):
+        cv2.circle(img, tuple(p[i]), 16, skin, -1)
+    head = (p[7] + p[8]) // 2
+    r = int(np.linalg.norm(p[7] - p[8]) * 0.9) or 40
+    cv2.line(img, tuple((p[11] + p[12]) // 2), tuple(head), skin, 26)
+    cv2.ellipse(img, tuple(head), (r, int(r * 1.25)), 0, 0, 360, skin, -1)
+    for dx in (-r // 3, r // 3):
+        cv2.circle(img, (head[0] + dx, head[1] - r // 5), max(r // 8, 3), (40, 40, 40), -1)
+    cv2.ellipse(img, (head[0], head[1] + r // 2), (r // 3, r // 8), 0, 0, 180, (60, 60, 150), 3)
+    return img
+
+
 @dataclass
 class SyntheticVideo:
     """A written synthetic video and its ground-truth frames."""
@@ -194,12 +221,28 @@ class SyntheticVideo:
     frames: list[Frame] = field(default_factory=list)
 
 
-def write_synthetic_video(path: Path, n_frames: int = 30, fps: float = 30.0) -> SyntheticVideo:
-    """Write a small stick-figure MP4 (640x360) of an arm raise; returns ground truth."""
+def write_synthetic_video(
+    path: Path,
+    n_frames: int = 30,
+    fps: float = 30.0,
+    style: Literal["stick", "mannequin"] = "stick",
+) -> SyntheticVideo:
+    """Write a small MP4 of an arm raise; returns ground truth.
+
+    stick: 640x360 sagittal stick figure (not detectable by MediaPipe; pipeline tests).
+    mannequin: 640x480 frontal abduction cartoon (detectable; real-model sanity tests).
+    """
     from rehabpose.data.video_io import VideoWriter
 
-    frames = arm_raise_sequence(n_frames, fps, img_w=640, img_h=360, px_per_m=220.0)
-    with VideoWriter(path, fps, (640, 360)) as wr:
+    if style == "stick":
+        size = (640, 360)
+        frames = arm_raise_sequence(n_frames, fps, img_w=640, img_h=360, px_per_m=220.0)
+    else:
+        size = (640, 480)
+        frames = arm_raise_sequence(
+            n_frames, fps, view="frontal", plane_deg=90, img_w=640, img_h=480, px_per_m=330.0
+        )
+    with VideoWriter(path, fps, size) as wr:
         for fr in frames:
-            wr.write(render_stick_figure(fr, thickness=4))
+            wr.write(render_stick_figure(fr, 4) if style == "stick" else render_mannequin(fr))
     return SyntheticVideo(Path(path), fps, frames)

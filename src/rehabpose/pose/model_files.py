@@ -57,6 +57,7 @@ def download_model(variant: ModelVariant, models_dir: Path, timeout_s: float = 6
                     raise RuntimeError(f"{url} exceeded 50 MB while downloading; aborted")
                 tmp.write(chunk)
     shutil.move(tmp.name, dest)
+    dest.chmod(0o644)  # temp files are created 0600
     log.info("Saved %s (%d bytes)", dest, copied)
     return dest
 
