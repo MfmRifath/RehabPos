@@ -44,6 +44,8 @@ htmlcov/
 # --- Node / frontend ---
 node_modules/
 frontend/dist/
+frontend/public/mediapipe/
+frontend/public/models/
 frontend/test-results/
 frontend/playwright-report/
 

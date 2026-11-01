@@ -9,8 +9,8 @@
 | 3 | Reps, tempo, DTW, rules, offline analysis | done | phase-3 |
 | 4 | Data tooling | done | phase-4 |
 | 5 | Backend | done | phase-5 |
-| 6 | Frontend | next | |
-| 7 | ML training & evaluation (MPS) | todo | |
+| 6 | Frontend | done (owner manual check pending) | phase-6 |
+| 7 | ML training & evaluation (MPS) | next | |
 | 8 | Reports, progress, gamification polish | todo | |
 | 9 | Quality, CI, Docker, benchmarks | todo | |
 | 10 | Final docs | todo | |
@@ -33,6 +33,16 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 6 tasks
+- [x] Vite React TS app (frontend/), Node 24, strict TS, ESLint, plain CSS tokens (light/dark)
+- [x] tasks-vision PoseLandmarker (VIDEO, GPU -> CPU fallback, lite/full/heavy), local wasm/models
+- [x] pages: home (+ disclaimer modal), setup check, live, summary, progress, therapist, upload
+- [x] WS client (reconnect, RTT), protocol types + shared contract fixture, TTS + captions, keys
+- [x] gamification (points, combos), streaks/badges (client-side until phase 8)
+- [x] production CSP blocking third-party requests (ADR 0003)
+- [x] vitest (35), Playwright smoke (mocked), CSP and real-backend e2e on system Chrome
+- [ ] owner: manual live check on the M3 and the HUD FPS reading (do not claim it)
 
 ## Phase 5 tasks
 - [x] api/schemas.py WS protocol v1 (discriminated union) + REST models
@@ -149,6 +159,18 @@
 - 2026-11-01 (P5): /ws/frames/{sid} (server-side pose ablations) is deferred to phase 7.
 - 2026-11-01 (P5): The users table needs an explicit flush before session insert (no ORM
   relationships), otherwise the SQLite FK check fails.
+- 2026-11-01 (P6): @mediapipe/tasks-vision 1.2.0 POSTs telemetry to odml.pa.googleapis.com
+  (found by e2e). There is no public opt-out, so a production CSP with connect-src 'self' blocks it
+  (ADR 0003). A deterministic e2e check confirms the request is refused.
+- 2026-11-01 (P6): The pose loop uses requestVideoFrameCallback. The first rAF version processed
+  duplicate frames (headless HUD showed FPS ~240), and a currentTime check does not help for
+  MediaStreams. With the fake camera in headless Chrome the HUD now shows ~20 FPS, which is the
+  fake device's frame rate, NOT a performance measurement.
+- 2026-11-01 (P6): Playwright uses the system Chrome (channel "chrome"), so there was no browser
+  download. npm audit: 11 moderate findings in dev-only lint tooling (minimatch via
+  typescript-eslint). Not force-fixed.
+- 2026-11-01 (P6): Additive WS fields cue.severity and feedback.dropped are used by the UI.
+  Streaks/badges are computed client-side and move server-side in phase 8.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -174,6 +196,7 @@ fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Resume
 ```bash
+cd frontend && npm ci && npx tsc -b && npx eslint . && npx vitest run && npx playwright test && cd ..
 # verify the committed tree, not just the working tree:
 #   git clone . /tmp/x && cd /tmp/x && uv sync --frozen && uv run pytest -q
 cd /Users/admin/Projects/RehabPos

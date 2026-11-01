@@ -37,6 +37,10 @@ In code it is `rehabpose.DISCLAIMER`. Tests check that README, this document and
   output is kept until the user deletes the session. A retention setting arrives in phase 8.
 - **Data subject rights:** export (JSON) and delete-with-cascade endpoints (FR-35).
 - **Logs** contain no landmarks or video, only session ids, codes and timings.
+- **No third-party requests in production:** the production frontend ships a same-origin
+  Content-Security-Policy ([ADR 0003](adr/0003-csp-blocks-third-party-requests.md)). This was
+  needed because `@mediapipe/tasks-vision` sends usage logs to Google
+  (`odml.pa.googleapis.com`), which the e2e test detected. The dev server is not covered.
 
 ## 5. Research data ethics
 - Own recordings follow the consent outline in [05_data_plan.md](05_data_plan.md#4-consent-outline):

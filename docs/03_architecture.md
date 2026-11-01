@@ -277,6 +277,20 @@ nothing should be shown.
 - **Phone:** HTTPS is required for camera access. Use mkcert with the LAN IP. See
   [08_deployment_plan.md](08_deployment_plan.md).
 
+## 8b. Frontend (phase 6)
+- Stack: Vite + React + TypeScript, zustand (state), recharts (progress charts),
+  `@mediapipe/tasks-vision` (PoseLandmarker, VIDEO mode, GPU delegate with CPU fallback).
+- Routes (hash router): `#/` exercise picker, `#/setup` camera check, `#/live`, `#/summary/<sid>`,
+  `#/progress`, `#/therapist`, `#/upload`.
+- The pose loop runs once per camera frame (`requestVideoFrameCallback`), so the HUD's FPS counts
+  camera frames that were processed. One landmarker per model variant is shared between setup
+  and live.
+- Wasm and models are copied into `public/` at build time (`scripts/copy-assets.mjs`) and served
+  by FastAPI from `frontend/dist`. The production CSP blocks all non-same-origin requests
+  ([ADR 0003](adr/0003-csp-blocks-third-party-requests.md)).
+- Protocol types live in `frontend/src/ws/protocol.ts`. A shared fixture
+  (`frontend/src/ws/protocol.fixtures.json`) is checked by both pytest and Vitest to catch drift.
+
 ## 9. Cross-cutting concerns
 - **Config:** `configs/app.yaml` (+ `REHABPOSE_*` env) and `configs/exercises/*.yaml`, validated by
   pydantic models.
