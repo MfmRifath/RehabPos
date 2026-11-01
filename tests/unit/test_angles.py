@@ -70,6 +70,14 @@ def test_forearm_rotation_3d(side: str, rot: float) -> None:
     assert angles.forearm_rotation(fr.world_xyz, side) == pytest.approx(rot, abs=TOL)  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("lean", [0, 12, 25])
+def test_trunk_tilt_side(lean: float) -> None:
+    pose = SynthPose(trunk_lean_deg=lean, trunk_lean_plane="sagittal")
+    fr = make_frame(pose, "sagittal")
+    assert angles.trunk_tilt_side(fr.pixel_xy, "R") == pytest.approx(lean, abs=TOL)
+    assert angles.trunk_tilt_side(fr.world_xyz, "L") == pytest.approx(lean, abs=TOL)
+
+
 def test_hike_ratio_drops_when_shoulder_hikes() -> None:
     base = angles.hike_ratio(make_frame(SynthPose(), "frontal").pixel_xy, "R")
     hiked = angles.hike_ratio(make_frame(SynthPose(hike_m=0.04), "frontal").pixel_xy, "R")

@@ -119,6 +119,17 @@ def trunk_tilt(points: FloatArray) -> FloatArray:
     return angle_between(trunk, np.broadcast_to(_up(p), trunk.shape))
 
 
+def trunk_tilt_side(points: FloatArray, side: Side) -> FloatArray:
+    """angle(hip->shoulder on one side, vertical up), degrees: trunk tilt for side-on views.
+
+    A side-on camera usually cannot see the far shoulder and hip, so the midpoint form is unknown.
+    """
+    j = side_joints(side)
+    p = _f(points)
+    trunk = p[..., j.shoulder, :] - p[..., j.hip, :]
+    return angle_between(trunk, np.broadcast_to(_up(p), trunk.shape))
+
+
 def shoulder_width(points: FloatArray) -> FloatArray:
     """Distance between landmarks 11 and 12 (pixels in 2D, metres in 3D)."""
     p = _f(points)

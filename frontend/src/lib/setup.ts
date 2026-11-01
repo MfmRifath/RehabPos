@@ -9,7 +9,30 @@ export interface Pt {
 }
 
 export const VISIBILITY_THRESHOLD = 0.6;
-export const UPPER_BODY = [0, 11, 12, 13, 14, 15, 16, 23, 24];
+export type Side = "L" | "R";
+
+const ARM: Record<Side, { shoulder: number; elbow: number; wrist: number; hip: number }> = {
+  L: { shoulder: 11, elbow: 13, wrist: 15, hip: 23 },
+  R: { shoulder: 12, elbow: 14, wrist: 16, hip: 24 },
+};
+const NAMES: Record<number, string> = {
+  11: "left shoulder", 12: "right shoulder", 13: "left elbow", 14: "right elbow",
+  15: "left wrist", 16: "right wrist", 23: "left hip", 24: "right hip",
+};
+
+/** Joints the exercise needs: side-on, only the near arm and hip can be seen. */
+export function requiredJoints(side: Side, view: View): number[] {
+  const j = ARM[side];
+  if (view === "sagittal") return [j.shoulder, j.elbow, j.wrist, j.hip];
+  return [11, 12, 23, 24, j.elbow, j.wrist];
+}
+
+/** Names of required joints below the visibility gate. */
+export function missingJoints(lm: Pt[], side: Side, view: View, thr = VISIBILITY_THRESHOLD): string[] {
+  return requiredJoints(side, view)
+    .filter((i) => (lm[i]?.visibility ?? 0) < thr)
+    .map((i) => NAMES[i] ?? `joint ${i}`);
+}
 
 export function visibleAll(lm: Pt[], indices: number[], thr = VISIBILITY_THRESHOLD): boolean {
   return indices.every((i) => (lm[i]?.visibility ?? 0) >= thr);
@@ -43,18 +66,23 @@ export function distanceHint(lm: Pt[]): DistanceHint {
 }
 
 export interface SetupReport {
+  detected: boolean;
   personVisible: boolean;
+  missing: string[];
   view: View | null;
   viewOk: boolean;
   distance: DistanceHint;
   ready: boolean;
 }
 
-export function setupReport(lm: Pt[] | null, w: number, h: number, expected: View): SetupReport {
-  if (!lm) return { personVisible: false, view: null, viewOk: false, distance: "too_far", ready: false };
-  const personVisible = visibleAll(lm, UPPER_BODY);
+export function setupReport(lm: Pt[] | null, w: number, h: number, expected: View, side: Side): SetupReport {
+  if (!lm) {
+    return { detected: false, personVisible: false, missing: [], view: null, viewOk: false, distance: "too_far", ready: false };
+  }
+  const missing = missingJoints(lm, side, expected);
+  const personVisible = missing.length === 0;
   const view = detectView(lm, w, h);
   const viewOk = view === null || view === expected;
   const distance = distanceHint(lm);
-  return { personVisible, view, viewOk, distance, ready: personVisible && viewOk && distance === "ok" };
+  return { detected: true, personVisible, missing, view, viewOk, distance, ready: personVisible && viewOk && distance === "ok" };
 }

@@ -226,12 +226,19 @@ class SessionEngine:
                 if ok and rest is not None
                 else None
             )
+        near = (j.shoulder, j.hip)
+        side_on = self.view == "sagittal"
+        if side_on and angles.is_visible(frame.visibility, near, cfg.visibility_threshold):
+            pts = frame.pixel_xy if cfg.space == "2d" else frame.world_xyz
+            m["trunk_tilt"] = float(angles.trunk_tilt_side(pts, self.side))
         vis = frame.visibility
         conf = {
             name: float(vis[list(angles.required_landmarks(name, self.side))].min())
             for name in m
             if name != "wrist_x"
         }
+        if side_on and m.get("trunk_tilt") is not None:
+            conf["trunk_tilt"] = float(vis[list(near)].min())
         return m, conf
 
     def process_missing(self, ts_ms: int, frame_idx: int = 0) -> FeedbackFrame:
@@ -292,6 +299,10 @@ class SessionEngine:
             flags.extend(self._setup_flags(t, visibility_ok, view_ok))
 
         texts = ex.cue_texts
+        if self.view == "sagittal" and frame is not None and not visibility_ok:
+            # A person is detected but the exercising arm is hidden: they likely face the wrong way.
+            arm = "right" if self.side == "R" else "left"
+            texts = {**texts, "SETUP_VISIBILITY": f"Turn so your {arm} arm faces the camera"}
         cue = self._cues.update(t, flags, texts) if self.active else None
         self._record_events(t, flags)
         return FeedbackFrame(

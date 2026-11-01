@@ -176,6 +176,50 @@ def test_occluded_wrist_gates_elbow_rules() -> None:
     assert out[-1].angles["elbow_flexion"] is None
 
 
+NEAR_R_HIDDEN = [8, 12, 14, 16, 24]
+FAR_HIDDEN_FOR_R = [7, 11, 13, 15, 23]
+
+
+def _side_on_set(hidden: list[int], lean: bool = True) -> list[Frame]:
+    from tests.fixtures.synthetic import rep_profile
+
+    reps = [RepSpec(150), RepSpec(150)]
+    values, ramps, owner = rep_profile(reps, 30.0, 1.5)
+    out = []
+    for i, (v, r, k) in enumerate(zip(values, ramps, owner, strict=True)):
+        extra = (
+            {"trunk_lean_deg": 18.0 * r, "trunk_lean_plane": "sagittal"} if lean and k == 1 else {}
+        )
+        pose = SynthPose(side="R", elevation_deg=float(v), **extra)  # type: ignore[arg-type]
+        ts = round(i * 1000 / 30)
+        out.append(make_frame(pose, "sagittal", occluded=hidden, ts_ms=ts, frame_idx=i))
+    return out
+
+
+def test_side_on_trunk_lean_works_with_far_side_hidden() -> None:
+    """Regression: hiding the far shoulder/hip made trunk tilt unknown on every frame."""
+    eng, out = run("shoulder_flexion", _side_on_set(FAR_HIDDEN_FOR_R))  # type: ignore[arg-type]
+    assert [r.flags for r in eng.reps] == [(), ("TRUNK_LEAN",)]
+    assert all(fb.angles["trunk_tilt"] is not None for fb in out)
+    assert {fb.cue.code for fb in out if fb.cue} >= {"TRUNK_LEAN"}
+    lean = next(f for fb in out for f in fb.flags if f.code == "TRUNK_LEAN")
+    assert lean.confidence > 0.6  # near-side landmarks only, not the hidden far side
+
+
+def test_side_on_exercising_arm_hidden_says_which_way_to_turn() -> None:
+    eng, out = run("shoulder_flexion", _side_on_set(NEAR_R_HIDDEN, lean=False))  # type: ignore[arg-type]
+    assert eng.reps == []
+    cues = {fb.cue.text for fb in out if fb.cue and fb.cue.code == "SETUP_VISIBILITY"}
+    assert cues == {"Turn so your right arm faces the camera"}
+
+
+def test_no_person_keeps_the_step_back_cue() -> None:
+    frames = rep_sequence("shoulder_flexion", [RepSpec(150)], dropouts=[(3.0, 4.5)])
+    _, out = run("shoulder_flexion", frames)
+    cue = out[int(4.2 * 30)].cue
+    assert cue is not None and cue.text.startswith("Step back")
+
+
 def test_view_mismatch_raises_setup_view() -> None:
     frames = [make_frame(SynthPose(), "frontal", ts_ms=i * 33, frame_idx=i) for i in range(60)]
     _, out = run("shoulder_flexion", frames)  # type: ignore[arg-type]

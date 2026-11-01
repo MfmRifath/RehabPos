@@ -57,6 +57,7 @@ Notation: `S`, `E`, `W`, `H`, `Ear` = shoulder, elbow, wrist, hip, ear on the ex
 | `elbow_interior` | `angle(S − E, W − E)` | 180 = straight arm |
 | `elbow_flexion` | `180 − elbow_interior` | 0 = straight, larger = more flexed |
 | `trunk_tilt` | `angle(mid_shoulder − mid_hip, up)` with `up = (0, −1)` in image coords | 0 = upright |
+| `trunk_tilt` side-on | `angle(S − H, up)` on the exercising side, used in the sagittal view when that shoulder and hip are visible | a side-on camera usually cannot see the far shoulder and hip |
 | `hike_ratio` | `(S_y − Ear_y) / shoulder_width`, compared to baseline | drops when the shoulder hikes toward the ear |
 | `shoulder_width_ratio` | `shoulder_width / baseline_shoulder_width` | < 1 when the trunk rotates (frontal view) |
 | `forearm_rotation` (exp.) | angle of `W − E` about the upper-arm axis, from `world` | external rotation (ER exercise) |

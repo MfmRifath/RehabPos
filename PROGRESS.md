@@ -214,6 +214,9 @@ mediapipe 1.2.0 (Tasks API `PoseLandmarker` present), torch 2.15.0, numpy 2.5.4,
 fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Open issues
+- Side-view tracking on a real person is untested from here. Code fixes are in (near-side trunk tilt,
+  setup needs only the near arm, skeleton on the setup page, "turn" cue). MediaPipe's own side-on
+  accuracy is NOT YET MEASURED; the owner reported poor side-view detection on 2026-11-01.
 - One Euro defaults worsened angle error on synthetic data (shoulder MAE 2.26 deg on vs 0.77 off; rep
   count unchanged). Lag during motion is the likely cause, unconfirmed. Check on real recordings
   before changing defaults.

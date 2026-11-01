@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { badges, currentStreak, longestStreak, type DayPoint } from "./badges";
 import { DISCLAIMER } from "./disclaimer";
 import { gameReducer, initialGame } from "./gamification";
-import { detectView, distanceHint, setupReport, visibleAll, type Pt } from "./setup";
+import { detectView, distanceHint, missingJoints, requiredJoints, setupReport, visibleAll, type Pt } from "./setup";
 import { CueSpeaker } from "./speech";
 
 describe("CueSpeaker", () => {
@@ -63,9 +63,18 @@ describe("setup heuristics", () => {
   it("visibility gate and overall readiness", () => {
     expect(visibleAll(skeleton(), [11, 12])).toBe(true);
     expect(visibleAll(skeleton(0.15, 0.3, 0.5), [11])).toBe(false);
-    expect(setupReport(skeleton(), 1000, 1000, "frontal").ready).toBe(true);
-    expect(setupReport(skeleton(), 1000, 1000, "sagittal")).toMatchObject({ ready: false, viewOk: false });
-    expect(setupReport(null, 1, 1, "frontal").ready).toBe(false);
+    expect(setupReport(skeleton(), 1000, 1000, "frontal", "R").ready).toBe(true);
+    expect(setupReport(skeleton(), 1000, 1000, "sagittal", "R")).toMatchObject({ ready: false, viewOk: false });
+    expect(setupReport(null, 1, 1, "frontal", "R")).toMatchObject({ ready: false, detected: false });
+  });
+  it("side-on needs only the near arm and hip (regression: both arms were required)", () => {
+    expect(requiredJoints("R", "sagittal")).toEqual([12, 14, 16, 24]);
+    expect(requiredJoints("L", "sagittal")).toEqual([11, 13, 15, 23]);
+    const lm = skeleton(0.02); // shoulders overlap: side-on
+    for (const i of [0, 7, 11, 13, 15, 23]) (lm[i] as Pt).visibility = 0.1; // far side + face hidden
+    expect(setupReport(lm, 1000, 1000, "sagittal", "R")).toMatchObject({ detected: true, personVisible: true, missing: [], ready: true });
+    expect(setupReport(lm, 1000, 1000, "sagittal", "L")).toMatchObject({ personVisible: false, ready: false });
+    expect(missingJoints(lm, "L", "sagittal")).toEqual(["left shoulder", "left elbow", "left wrist", "left hip"]);
   });
 });
 
