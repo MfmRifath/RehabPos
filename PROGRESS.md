@@ -7,8 +7,8 @@
 | 1 | Documentation | done | phase-1 |
 | 2 | Pose & geometry core | done | phase-2 |
 | 3 | Reps, tempo, DTW, rules, offline analysis | done | phase-3 |
-| 4 | Data tooling | next | |
-| 5 | Backend | todo | |
+| 4 | Data tooling | done | phase-4 |
+| 5 | Backend | next (waiting for dataset decision) | |
 | 6 | Frontend | todo | |
 | 7 | ML training & evaluation (MPS) | todo | |
 | 8 | Reports, progress, gamification polish | todo | |
@@ -33,6 +33,16 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 4 tasks
+- [x] data/schema.py annotation v1 (pydantic, angle consistency check, JSON Schema)
+- [x] data/labeling: pure LabelState + OpenCV tool (injectable UI) + `rehabpose label`
+- [x] data/loaders: base (license gate, missing/layout errors, YAML layout override), own + 7 public
+- [x] data/joint_maps.py Kinect v2 25 and Plug-in Gait -> MediaPipe UPPER13, virtual camera
+- [x] data/splits.py held-out test + GroupKFold/LOSO, leakage checks, YAML plans
+- [x] data/tasks.py stats + extract-all; `rehabpose data list|info|stats|extract-all|splits|schema`
+- [x] scripts/download_{zenodo,mendeley,kaggle_trsp}.sh (NOT run; refuse without --yes)
+- [ ] manual check of the labeling window on data/demo/label_demo.mp4 (owner)
 
 ## Phase 3 tasks
 - [x] core/exercise.py pydantic YAML models; configs/exercises/*.yaml (5), synthetic min-jerk references
@@ -102,6 +112,15 @@
   measures plane_drift_m, elbow_away, and setting exercises_dir.
 - 2026-11-01 (P3): The engine perf test is marked `no_cover`. Coverage tracing slows it ~2.4x
   (2.32 s vs 0.98 s measured).
+- 2026-11-01 (P4): Public dataset file layouts are ASSUMED (no real files seen). Every loader has
+  layout_verified=False, logs a warning, and can be re-pointed via configs/datasets/<name>.yaml.
+  Native exercise codes are not mapped to RehabPose ids until verified. UI-PRMD Kinect joint order
+  is not assumed (joint_format unknown_<J>). dib_upper has no subject ids under the assumed layout,
+  so no subject-wise splits are possible.
+- 2026-11-01 (P4): UPPER13 = MediaPipe {0, 7, 8, 11-16, 19, 20, 23, 24}. Kinect nose/ears <- Head.
+  PiG hips <- mean(ASI, PSI). Approximations are listed in docs/05 §2.
+- 2026-11-01 (P4): Labeling angle measures are limited to true 3-point angles (upper_arm_trunk_angle,
+  elbow_interior). Rep flags in saved labels are derived from overlapping compensation segments.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -109,6 +128,7 @@ mediapipe 1.2.0 (Tasks API `PoseLandmarker` present), torch 2.15.0, numpy 2.5.4,
 fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Open issues
+- Waiting on the owner: which datasets are downloaded/approved (phase 4 STOP question).
 - Default TOO_FAST peak velocity (90 °/s) flags minimum-jerk reps faster than about 6 s for a 150°
   ROM. That is consistent with the 45 °/s "controlled" reference, but therapists may find it strict.
   It is editable per user (phase 5/8).

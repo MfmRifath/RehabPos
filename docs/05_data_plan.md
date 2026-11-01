@@ -38,11 +38,47 @@
 | KIMORE | — | — | — | — | ✓ (low-back only) |
 | Toronto Rehab Stroke Pose | — | — | — | ✓ (TRUNK_LEAN, SHOULDER_HIKE, TRUNK_ROTATION) | ✓ |
 
-Skeleton-only datasets (Kinect, mocap) are mapped to a **13-joint upper-body subset** compatible with
-MediaPipe indices (nose, ears, shoulders, elbows, wrists, hips) in `rehabpose.data.joint_maps`. The
-approximations, such as Kinect `SpineShoulder` and the missing ears, are documented there. A loader
-returns `Sequence(subject, exercise, side, view, fps, frames | skeleton, joint_format, labels, license,
-citation)`.
+### Loaders (`rehabpose.data.loaders`, phase 4)
+Each loader prints the licence and citation and requires `--i-accept-license`. Own data is the only
+exception. If files are missing, the loader raises an error with download instructions. Each loader
+returns `Sequence(dataset, subject, exercise, exercise_id, side, view, fps, source, joint_format,
+frames | skeleton | video, labels, license, citation)`.
+
+**The file layouts of all public datasets are ASSUMED** from the descriptions above. None has been
+checked against real files yet (`layout_verified = False`, and the loader logs a warning). Each
+assumed layout is a glob plus a filename regex. It can be overridden without code changes in
+`configs/datasets/<name>.yaml` (`patterns`, `regex`, `fps`, `view`, `exercise_map`). After a
+dataset is downloaded, verify the layout, update the override and this table, and only then map
+native exercise codes to RehabPose ids.
+
+| Dataset | Assumed layout | Payload |
+|---|---|---|
+| uco | `<subject>/<exercise>/<video>` | video (extract with MediaPipe) |
+| rehab24_6 | `<subject>/<exercise>/<video>`; rep/correctness files not parsed yet | video |
+| dib_upper | `<exercise>/<complete or incomplete>/<video>`; no subject ids, so subject-wise splits are impossible | video |
+| intellirehab | `<subject>_<date>_<gesture>_<rep>_<correctness>_<position>.txt`, Kinect v2 rows | Kinect v2 25 joints |
+| uiprmd | `<Segmented or Incorrect Segmented Movements>/Kinect/Positions/m<ex>_s<subj>_e<ep>_positions*.txt` | J×3 rows; joint order **not** assumed (`unknown_<J>`), not convertible yet |
+| kimore | `<group>/[<subgroup>/]<subject>/Es<k>/Raw/JointPosition*.csv` | Kinect v2 25 joints |
+| trsp | `<subject>/<sequence>.csv` with joint columns and an optional `label` column | Kinect v2 + frame labels |
+| own | defined by this project (§8) | MediaPipe parquet + annotation JSON |
+
+### Joint maps (`rehabpose.data.joint_maps`)
+Skeleton datasets are mapped to a **13-joint upper-body subset** in MediaPipe indices: nose 0,
+ears 7/8, shoulders 11/12, elbows 13/14, wrists 15/16, index fingers 19/20, hips 23/24. Unmapped
+landmarks get visibility 0, and so do untracked source joints (zero or NaN). Coordinates are
+converted to MediaPipe world axes (y down, +x = subject's left) and centred on the mid-hip:
+Kinect camera space (x, y, z) → (−x, −y, z); a z-up mocap lab frame in mm → (x, −z, y)/1000.
+Engine Frames are produced with a virtual orthographic camera (frontal or sagittal).
+
+Approximations:
+- **Kinect:** nose and both ears ← Head, so `hike_ratio` is approximate and horizontal ear
+  positions are meaningless. Index finger ← HandTip.
+- **Plug-in Gait:** ear ← mean(front, back head marker) per side. Wrist ← mean(WRA, WRB).
+  Hip ← mean(ASI, PSI) per side, which is a crude proxy offset from the true hip joint centre.
+
+`rehabpose data extract-all <name>` writes one parquet per sequence to `data/interim/<name>/`.
+Videos go through MediaPipe with a fresh landmarker per video. Mappable skeletons are converted.
+Formats with unknown joint order are skipped and counted as `unsupported`.
 
 ## 3. Own-recording protocol
 **Goal:** a small, consented dataset of the five v1 exercises recorded with ordinary webcams. It serves
@@ -96,7 +132,7 @@ Done with the labeling tool (`rehabpose label`, phase 4). Each video gets one JS
   guideline is updated.
 
 ## 6. Annotation schema (v1)
-Pydantic model `rehabpose.data.schema.Annotation` (phase 4). Example (illustrative values):
+Pydantic model `rehabpose.data.schema.Annotation` (`rehabpose data schema` prints the JSON Schema). Angle annotations are validated: `angle_deg` must match the angle computed from `points_px` within 0.5°. Example (illustrative values):
 ```json
 {
   "schema_version": 1,
@@ -126,7 +162,10 @@ Pydantic model `rehabpose.data.schema.Annotation` (phase 4). Example (illustrati
 
 ## 7. Splits
 - **Unit of splitting = subject.** No subject appears in more than one of train/val/test
-  (`rehabpose.data.splits`). A leakage test enforces this.
+  (`rehabpose.data.splits`). A leakage test enforces this, including a property test over random
+  subject counts. Sequences without subject ids (`unknown:*`) are rejected.
+- `rehabpose data splits <name>` writes `configs/train/splits.yaml`. Loading a plan re-checks it
+  for leakage.
 - **Held-out test subjects:** about 20 % of own-data subjects, fixed before any model selection, with
   the IDs listed in `configs/train/splits.yaml`. They are evaluated once per reported model.
 - **Model selection:** `GroupKFold` (k = 5) on the remaining subjects, or LOSO when there are fewer
