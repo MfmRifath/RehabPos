@@ -10,8 +10,8 @@
 | 4 | Data tooling | done | phase-4 |
 | 5 | Backend | done | phase-5 |
 | 6 | Frontend | done (owner manual check pending) | phase-6 |
-| 7 | ML training & evaluation (MPS) | next | |
-| 8 | Reports, progress, gamification polish | todo | |
+| 7 | ML training & evaluation (MPS) | done on SYNTHETIC data only | phase-7 |
+| 8 | Reports, progress, gamification polish | next | |
 | 9 | Quality, CI, Docker, benchmarks | todo | |
 | 10 | Final docs | todo | |
 | 11 | Core ML / iOS (optional, only on request) | not requested | |
@@ -33,6 +33,31 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 7 results: SYNTHETIC, not results
+All runs at commit b48c5a1 (16 subjects; test subjects S03, S04, S12; 5 folds x 3 seeds).
+Reports: `reports/eval/<config>-20261101-*.md` with the `.json` beside each; MLflow run ids are in
+each report. Earlier reports marked git 45cdecd came from uncommitted code: ignore them.
+
+| Config | MLflow | CV macro-F1 | Test macro-F1 by seed | Worst p95 ms (CPU / MPS) |
+|---|---|---|---|---|
+| rep_lgbm | cb7fe7f1 | 0.987 ± 0.015 | 0.994, 1.000, 1.000 | 0.16 / n/a |
+| rep_tcn | fb285e55 | 0.831 ± 0.063 | 0.840, 0.769, 0.924 | 0.57 / 0.54 |
+| rep_lstm | 52a69b83 | 0.789 ± 0.055 | 0.797, 0.805, 0.831 | 0.74 / 1.91 |
+| rep_bilstm | 6db9b52e | 0.813 ± 0.054 | 0.798, 0.890, 0.835 | 1.46 / 3.24 |
+| rep_transformer | b92cc82f | 0.886 ± 0.107 | 0.940, 0.608, 0.900 | 0.38 / 1.03 |
+| rep_stgcn | 34d375a8 | 0.657 ± 0.095 | 0.620, 0.736, 0.675 | 0.81 / 1.04 |
+| stream_tcn | 5bde3f67 | 0.731 ± 0.022 | 0.756, 0.697, 0.734 | 0.56 / 0.56 |
+| stream_lstm | 7d065d76 | 0.713 ± 0.031 | 0.735, 0.743, 0.761 | 0.54 / 1.45 |
+| stream_transformer | 96a55efe | 0.768 ± 0.011 | 0.769, 0.783, 0.789 | 0.35 / 1.23 |
+| stream_stgcn | 568c72df | 0.435 ± 0.029 | 0.364, 0.409, 0.378 | 0.72 / 1.01 |
+
+- Rule-engine baseline on the same test reps: macro-F1 0.965, accuracy 0.958, 0 reps missed.
+- Engine on test sets: rep-count MAE 0.0; shoulder angle MAE 2.56 deg; elbow angle MAE 2.47 deg.
+- Ablations: `reports/ablations/ablations-20261101-165706.md`.
+
+Targets on real own data (macro-F1 >= 0.85, rep MAE <= 0.5, shoulder <= 8 deg, elbow <= 10 deg):
+NOT YET MEASURED. Live browser FPS: NOT YET MEASURED.
 
 ## Phase 6 tasks
 - [x] Vite React TS app (frontend/), Node 24, strict TS, ESLint, plain CSS tokens (light/dark)
@@ -176,6 +201,12 @@
   else the cwd). Before this, `rehabpose serve` run from frontend/ would find no exercises. Missing
   exercise configs are now an error. The README run instructions are split into copy-pasteable
   blocks (zsh does not treat inline `#` as a comment).
+- 2026-11-01 (P7): Generator moved to rehabpose.synth (tests use a shim). Real-data training raises
+  NotImplementedError until labelled recordings exist. Deviations are in ADR 0004.
+- 2026-11-01 (P7): ST-GCN last step saw 9 of 64 frames; dilated blocks raised rep test macro-F1
+  (seed 0) from 0.229 to 0.620. It remains the weakest model; the remaining cause is unknown.
+- 2026-11-01 (P7): Run long jobs under `caffeinate -i` with the lid open. Mac sleep stretched a run of
+  roughly 8 minutes to 82 minutes.
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)
@@ -183,6 +214,14 @@ mediapipe 1.2.0 (Tasks API `PoseLandmarker` present), torch 2.15.0, numpy 2.5.4,
 fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 
 ## Open issues
+- One Euro defaults worsened angle error on synthetic data (shoulder MAE 2.26 deg on vs 0.77 off; rep
+  count unchanged). Lag during motion is the likely cause, unconfirmed. Check on real recordings
+  before changing defaults.
+- Streaming codes rank well but threshold badly: SHOULDER_HIKE AUROC 0.966-0.985 with F1 0.26-0.28.
+  Per-code thresholds (docs/06 §7) are not implemented.
+- rep_transformer varies widely by seed (0.608-0.940). Only 3 test subjects, so CIs are coarse.
+- pose ablation: RTMPose and YOLO have no adapters; pretraining not run; /ws/frames not implemented.
+- Own-data loader for training and enabling a model in live sessions are still to do.
 - StarletteDeprecationWarning from fastapi.testclient (it wants `httpx2`). This is third-party;
   revisit when FastAPI updates its TestClient.
 - Waiting on the owner: which datasets are downloaded/approved (phase 4 STOP question).

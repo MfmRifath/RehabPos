@@ -270,3 +270,27 @@ def test_cli_train_quick_no_mlflow(home: Path) -> None:
     assert r.exit_code == 0, r.output
     assert "[SYNTHETIC] rep_lgbm" in r.output
     assert list((home / "reports" / "eval").glob("rep_lgbm-*.md"))
+
+
+def test_cli_evaluate_ablations(home: Path) -> None:
+    import json
+
+    from typer.testing import CliRunner
+
+    from rehabpose.cli import app
+
+    r = CliRunner().invoke(
+        app, ["evaluate", "--ablation", "pretraining", "--ablation", "smoothing", "--quick"]
+    )
+    assert r.exit_code == 0, r.output
+    report = next((home / "reports" / "ablations").glob("ablations-*.md"))
+    text = report.read_text()
+    assert (
+        "SYNTHETIC — not a result" in text
+        and "Commit: `" in text
+        and "not a medical device" in text
+    )
+    data = json.loads(report.with_suffix(".json").read_text())
+    assert data["pretraining"]["status"] == "NOT RUN"
+    assert {"on", "off"} <= set(data["smoothing"])
+    assert CliRunner().invoke(app, ["evaluate", "--ablation", "nope"]).exit_code != 0

@@ -173,6 +173,7 @@ def ablate_backend(quick: bool) -> dict[str, Any]:
             else "not installed (optional extra)"
         )
     (tmp / "abduction.mp4").unlink(missing_ok=True)
+    tmp.rmdir()
     return out
 
 
@@ -197,6 +198,8 @@ def run_ablations(
     names: list[str], quick: bool = False, out_dir: Path | None = None, command: str = ""
 ) -> Path:
     """Run ablations and write reports/ablations/ablations-<stamp>.md (+ .json)."""
+    from rehabpose.ml.evaluate import _git_commit
+
     out_dir = Path(out_dir or project_root() / "reports" / "ablations")
     out_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, Any] = {}
@@ -211,7 +214,8 @@ def run_ablations(
         "",
         "> **SYNTHETIC — not a result.** Generated skeletons / a rendered cartoon only.",
         "",
-        f"Command: `{command or 'n/a'}`" + (" (quick mode: reduced sizes)" if quick else ""),
+        f"Commit: `{_git_commit()}`. Command: `{command or 'n/a'}`"
+        + (" (quick mode: reduced sizes)" if quick else ""),
         "",
     ]
     for name, res in results.items():
