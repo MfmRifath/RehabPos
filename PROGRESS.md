@@ -171,6 +171,11 @@
   typescript-eslint). Not force-fixed.
 - 2026-11-01 (P6): Additive WS fields cue.severity and feedback.dropped are used by the UI.
   Streaks/badges are computed client-side and move server-side in phase 8.
+- 2026-11-01 (post-P6): Relative settings paths (data_dir, models_dir, exercises_dir, frontend_dist,
+  sqlite file) now resolve against project_root() ($REHABPOSE_HOME, else the source checkout,
+  else the cwd). Before this, `rehabpose serve` run from frontend/ would find no exercises. Missing
+  exercise configs are now an error. The README run instructions are split into copy-pasteable
+  blocks (zsh does not treat inline `#` as a comment).
 - No TodoWrite tool is available in this environment. Per-phase task checklists live in this file.
 
 ## Pinned key versions (resolved 2026-11-01, see uv.lock)

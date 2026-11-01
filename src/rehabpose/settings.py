@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -17,13 +17,29 @@ from pydantic_settings import (
 
 DEFAULT_CONFIG_PATH = Path("configs/app.yaml")
 CONFIG_ENV_VAR = "REHABPOSE_CONFIG"
+HOME_ENV_VAR = "REHABPOSE_HOME"
 
 PoseModelVariant = Literal["lite", "full", "heavy"]
 
 
+def project_root() -> Path:
+    """Base for relative paths: $REHABPOSE_HOME, else the source checkout, else the cwd.
+
+    Makes `rehabpose serve` behave the same from any working directory (e.g. frontend/).
+    """
+    env = os.environ.get(HOME_ENV_VAR)
+    if env:
+        return Path(env).expanduser().resolve()
+    checkout = Path(__file__).resolve().parents[2]
+    if (checkout / DEFAULT_CONFIG_PATH).is_file():
+        return checkout
+    return Path.cwd()
+
+
 def config_path() -> Path:
     """Return the YAML config path, overridable via the REHABPOSE_CONFIG env var."""
-    return Path(os.environ.get(CONFIG_ENV_VAR, DEFAULT_CONFIG_PATH))
+    env = os.environ.get(CONFIG_ENV_VAR)
+    return Path(env) if env else project_root() / DEFAULT_CONFIG_PATH
 
 
 class Settings(BaseSettings):
@@ -46,6 +62,21 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     frontend_dist: Path = Path("frontend/dist")
     max_upload_mb: int = Field(default=500, gt=0)
+
+    @model_validator(mode="after")
+    def _absolute_paths(self) -> Settings:
+        """Resolve relative paths (and a relative sqlite file) against project_root()."""
+        root = project_root()
+        for name in ("data_dir", "models_dir", "exercises_dir", "frontend_dist"):
+            value: Path = getattr(self, name)
+            if not value.is_absolute():
+                setattr(self, name, root / value)
+        prefix = "sqlite:///"
+        if self.db_url.startswith(prefix) and not self.db_url.startswith(prefix + "/"):
+            rel = self.db_url[len(prefix) :]
+            if rel and rel != ":memory:":
+                self.db_url = f"{prefix}{root / rel}"
+        return self
 
     @classmethod
     def settings_customise_sources(

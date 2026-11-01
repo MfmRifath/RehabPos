@@ -136,3 +136,8 @@ def test_apply_overrides() -> None:
         apply_overrides(flex, thresholds={"TOO_FAST": 1})
     with pytest.raises(ValidationError):
         apply_overrides(flex, target=40)  # below start_below + min_excursion
+
+
+def test_load_exercises_missing_dir_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="no exercise configs"):
+        load_exercises(tmp_path / "nope")

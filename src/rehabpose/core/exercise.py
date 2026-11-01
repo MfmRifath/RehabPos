@@ -167,7 +167,9 @@ def load_exercise(path: Path) -> ExerciseConfig:
 
 
 def load_exercises(directory: Path) -> dict[str, ExerciseConfig]:
-    """Load every *.yaml in `directory`, keyed by exercise id."""
+    """Load every *.yaml in `directory`, keyed by exercise id (error if there are none)."""
+    if not Path(directory).is_dir() or not any(Path(directory).glob("*.yaml")):
+        raise FileNotFoundError(f"no exercise configs (*.yaml) found in {directory}")
     out: dict[str, ExerciseConfig] = {}
     for path in sorted(Path(directory).glob("*.yaml")):
         ex = load_exercise(path)

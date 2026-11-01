@@ -20,17 +20,39 @@ uv run rehabpose --help
 uv run pytest -q
 ```
 
-## Run the app (development)
+## Run the app
+
+Two options. Commands can be run from any folder inside the repo.
+
+**Production-like (one terminal, recommended).** The build includes the privacy CSP.
 
 ```bash
-uv run rehabpose serve                 # API + WebSocket on http://127.0.0.1:8000
-cd frontend && npm ci && npm run dev   # UI on http://localhost:5173 (proxies /api and /ws)
+cd ~/Projects/RehabPos/frontend
+npm run build
+cd ..
+uv run rehabpose serve
 ```
-Pose models must be in `data/models/` (`uv run rehabpose extract --download-model ...` fetches
-them after consent). `npm run dev` copies them, together with MediaPipe's wasm, into
-`frontend/public/`. Note that the dev server has no Content-Security-Policy. The production build
-(`npm run build`, served by `rehabpose serve` at http://127.0.0.1:8000) blocks all third-party
-requests, including MediaPipe's built-in telemetry (see docs/adr/0003).
+Then open http://127.0.0.1:8000 in Chrome.
+
+**Development (two terminals, hot reload).**
+
+Terminal 1:
+```bash
+cd ~/Projects/RehabPos
+uv run rehabpose serve
+```
+Terminal 2:
+```bash
+cd ~/Projects/RehabPos/frontend
+npm run dev
+```
+Then open http://localhost:5173. Vite proxies `/api` and `/ws` to the server in terminal 1.
+
+Pose models must be in `data/models/`; `uv run rehabpose extract --download-model ...` fetches
+them after consent. `npm run build` / `npm run dev` copy them, together with MediaPipe's wasm,
+into `frontend/public/`. The dev server has no Content-Security-Policy, so MediaPipe's built-in
+telemetry is only blocked in the production build (see docs/adr/0003). Run `npm ci` only once,
+after cloning or when `package-lock.json` changes.
 
 ## License
 
