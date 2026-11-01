@@ -21,7 +21,7 @@ class IntelliRehabLoader(PatternLoader):
         name="intellirehab",
         title="IntelliRehabDS",
         license="CC BY 4.0",
-        citation="IntelliRehabDS, Zenodo doi:10.5281/zenodo.4610859",
+        citation="Miron et al., Data 6(5):46 (2021), doi:10.3390/data6050046",
         url="https://doi.org/10.5281/zenodo.4610859",
         access="open",
         instructions=(

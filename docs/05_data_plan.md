@@ -11,21 +11,25 @@
   `tests/fixtures/`.
 - **Keypoints by default.** For our own recordings, raw video is kept only when consent covers it,
   and is stored locally.
-- **Facts must be verified.** The dataset descriptions below come from the project spec. Licence
-  terms marked *verify* must be checked against the dataset's own page before use, and the result
-  recorded in this table.
+- **Facts must be verified.** The table below was checked against each dataset's own record on
+  2026-11-01, and corrects several details from the original spec. Anything still unconfirmed says so.
+  Check again before use, because terms can change.
 
 ## 2. Public datasets
-| Key | Dataset | Sensor / modality | Content (as described in the spec) | Labels relevant to us | Licence | Access |
+| Key | Dataset | Sensor / modality | Content as checked | Labels relevant to us | Licence as checked | Access |
 |---|---|---|---|---|---|---|
-| `uco` | UCO Physical Rehabilitation (Sensors 2023) | 5 RGB views | 27 subjects, 16 exercises incl. seated shoulder flexion, horizontal openings, band external rotation | exercise class | verify | on request via github AVAuco/ucophyrehab |
-| `uco` (++) | UCOPhyRehab++ (Scientific Data 2026) | derived modalities | extends UCO with physiotherapist 5-point scores, rep start/end frames | quality scores, rep boundaries, tempo rubric | verify | Zenodo |
-| `rehab24_6` | REHAB24-6 | 2 RGB cams + mocap | 65 recordings, 10 subjects, 6 exercises, 1,072 segmented reps | correctness per rep | verify | Zenodo record 13305826 |
-| `dib_upper` | Upper-limb stroke rehab exercise videos (Data in Brief 2026) | webcam + mobile | 491 videos, 4 exercises | complete / incomplete | CC BY 4.0 | Mendeley doi 10.17632/49h9dcwx5v.1 |
-| `intellirehab` | IntelliRehabDS | Kinect | elbow flexion, shoulder flexion, abduction, forward elevation | correctness | CC BY 4.0 | Zenodo 10.5281/zenodo.4610859 |
-| `uiprmd` | UI-PRMD | Vicon + Kinect | incl. shoulder abduction / extension / rotation / scaption | correct / incorrect | ODC PDDL | Zenodo |
-| `kimore` | KIMORE | Kinect v2 | 78 subjects, 5 low-back exercises | clinical scores | check EULA | — |
-| `trsp` | Toronto Rehab Stroke Pose | Kinect v2 | upper-body compensation frames | frame labels: none / lean-forward / shoulder-elevation / trunk-rotation | check terms | Kaggle derekdb/toronto-robot-stroke-posture-dataset |
+| `uco` | UCO Physical Rehabilitation (Sensors 2023) | 5 RGB views, OptiTrack | 27 subjects, 8 exercises per the paper (the spec said 16) | exercise class | Paper CC BY 4.0. Video terms are set by the authors | on request via github AVAuco/ucophyrehab |
+| `uco` (++) | UCOPhyRehab++ (Scientific Data 2026) | derived modalities (silhouettes, optical flow, segmentation), 3D joints | extends UCO with demographic metadata and expert physical-therapist performance scores | quality scores | CC BY 4.0 on Zenodo. Crossref lists the article as CC BY-NC-ND 4.0 | Zenodo 10.5281/zenodo.17935737 |
+| `rehab24_6` | REHAB24-6 | 2 RGB cams + mocap | 65 recordings, 10 subjects, 6 exercises, 1,072 segmented reps | correctness per rep | **CC BY-NC 4.0: non-commercial research only** | Zenodo 10.5281/zenodo.13305826 |
+| `dib_upper` | Upper-limb stroke rehab exercise videos (Data in Brief 2026) | webcam + mobile, 30 fps | 491 videos, 4 exercises, 10 volunteers | complete / incomplete | CC BY 4.0 | Mendeley doi 10.17632/49h9dcwx5v.1 |
+| `intellirehab` | IntelliRehabDS | Kinect | exercise names from the spec, not checked: elbow flexion, shoulder flexion, abduction, forward elevation | correctness | CC BY 4.0 | Zenodo 10.5281/zenodo.4610859 |
+| `uiprmd` | UI-PRMD | Vicon + Kinect | 10 rehabilitation movements | correct / incorrect | ODC PDDL 1.0 per a search result for the dataset page. Not confirmed, as the page refused direct access | University of Idaho page (webpages.uidaho.edu/ui-prmd) |
+| `kimore` | KIMORE | RGB-D, skeleton | 78 subjects (44 healthy, 34 with motor dysfunction), 5 low-back exercises | clinical scores | Not confirmed: page unreachable when checked. The spec says EULA | from the authors (vrai.dii.univpm.it/node/204704) |
+| `trsp` | Toronto Rehab Stroke Pose | Kinect | 10 healthy participants and 9 stroke survivors, seated with a rehab robot | frame labels: none / lean-forward / shoulder-elevation / trunk-rotation | Not confirmed: Kaggle terms could not be read when checked | Kaggle derekdb/toronto-robot-stroke-posture-dataset |
+
+Not confirmed from the UCOPhyRehab++ sources read so far: the spec's "5-point" score scale and rep
+start/end frames. Check both in the article before relying on them. Full citations are in the
+[README](../README.md#citations).
 
 ### How each dataset is used
 | Dataset | Rep counting | Angle accuracy | Form classification | Compensation (frame-level) | Pose pretraining |

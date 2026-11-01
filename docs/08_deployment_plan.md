@@ -44,19 +44,15 @@ Then open http://127.0.0.1:8000.
   only. Live mode is unaffected because pose runs in the browser.
 
 ## 3. Phone (same LAN)
-Browsers allow camera access only on secure origins, so a phone needs HTTPS.
+Browsers allow camera access only on secure origins, so a phone needs HTTPS. `rehabpose serve` takes
+`--ssl-certfile` and `--ssl-keyfile`, and the web app then uses `wss://` automatically. The exact commands
+are in the [README](../README.md#use-a-phone-on-the-same-network).
 
-1. Install mkcert. This is a Homebrew package, so the owner is asked before installing it. Then run
-   `mkcert -install`.
-2. Run `mkcert <LAN-IP> localhost 127.0.0.1` to create a cert and key in a git-ignored folder.
-3. Serve with TLS, e.g.
-   `uv run rehabpose serve --host 0.0.0.0 --ssl-certfile … --ssl-keyfile …` (phase 5 adds the flags),
-   or Vite `server.https`.
-4. Install the mkcert root CA on the phone (iOS: Settings → General → About → Certificate Trust
-   Settings).
-5. Open `https://<LAN-IP>:8000` on the phone.
+**Status:** TLS and `wss://` were tested on the Mac with a self-signed certificate. The full flow on a
+phone, with mkcert, has not been tested.
 
-Exact commands are written in the README in phase 10.
+The API has no login, and `serve` logs a warning when bound beyond localhost. Use this only on a network
+you trust. mkcert is a Homebrew package, so the owner is asked before it is installed.
 
 ## 4. Configuration
 - `configs/app.yaml` + `REHABPOSE_*` env vars (e.g. `REHABPOSE_PORT=9000`), and

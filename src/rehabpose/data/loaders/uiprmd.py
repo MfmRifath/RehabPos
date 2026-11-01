@@ -28,13 +28,12 @@ class UiPrmdLoader(PatternLoader):
     info = DatasetInfo(
         name="uiprmd",
         title="UI-PRMD",
-        license="ODC PDDL (verify)",
-        citation="UI-PRMD dataset (use the citation given on the dataset page)",
-        url="https://zenodo.org (search: UI-PRMD)",
+        license="ODC PDDL 1.0 per the dataset page (verify: page not reachable when checked)",
+        citation="Vakanski et al., Data 3(1):2 (2018), doi:10.3390/data3010002",
+        url="https://webpages.uidaho.edu/ui-prmd/",
         access="open",
         instructions=(
-            "Download UI-PRMD from its Zenodo/web page (record id to be confirmed; "
-            "scripts/download_zenodo.sh <record-id> uiprmd after approval) and extract under "
+            "Download UI-PRMD from its University of Idaho page after approval and extract under "
             "data/raw/uiprmd/."
         ),
     )

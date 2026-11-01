@@ -13,7 +13,7 @@
 | 7 | ML training & evaluation (MPS) | done on SYNTHETIC data only | phase-7 |
 | 8 | Reports, progress, gamification polish | done | phase-8 |
 | 9 | Quality, CI, Docker, benchmarks | done except Docker build | phase-9 |
-| 10 | Final docs | next | |
+| 10 | Final docs | done | phase-10 |
 | 11 | Core ML / iOS (optional, only on request) | not requested | |
 
 ## Phase 0 tasks
@@ -33,6 +33,18 @@
 - [x] ADR 0001 (landmarks over WebSocket), ADR 0002 (CPU-only torch lock)
 - [x] stubs docs/10_model_card.md, docs/11_datasheet.md ("NOT YET MEASURED")
 - [x] tests/unit/test_docs.py: links + anchors, Mermaid structure, table widths, disclaimer verbatim
+
+## Phase 10 tasks
+- [x] README: pitch, GIF placeholder, disclaimer, highlights, Mermaid, native + Docker quickstart, phone
+      steps, results from reports only, datasets and licences, ethics, roadmap, citations
+- [x] docs/10_model_card.md, docs/11_datasheet.md (no recordings exist: plan only), docs/portfolio.md,
+      CONTRIBUTING.md
+- [x] `rehabpose serve --ssl-certfile/--ssl-keyfile`; https and wss checked on the Mac (self-signed)
+- [x] reports/results_summary.json + ml/results.py + scripts/summarize_results.py; tests hold README,
+      model card and portfolio numbers to that file
+- [x] Citations checked on Crossref, Zenodo, Mendeley, arXiv, Europe PMC; docs/05 and loader licences fixed
+- [ ] scripts/make_gif.sh: NOT WRITTEN (owner did not answer; ffmpeg not installed)
+- [ ] Markdown lint: NOT RUN (no linter installed)
 
 ## Phase 9 tasks
 - [x] .github/workflows/ci.yml; the same commands pass locally (98.59 % coverage of rehabpose.core)
@@ -242,7 +254,8 @@ fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 - One Euro defaults worsened angle error on synthetic data (shoulder MAE 2.26 deg on vs 0.77 off; rep
   count unchanged). Lag during motion is the likely cause, unconfirmed. Check on real recordings
   before changing defaults.
-- Streaming codes rank well but threshold badly: SHOULDER_HIKE AUROC 0.966-0.985 with F1 0.26-0.28.
+- Streaming codes rank well but threshold badly: SHOULDER_HIKE seed-0 AUROC 0.955-0.985 with F1
+  0.246-0.279 over the four stream configs.
   Per-code thresholds (docs/06 §7) are not implemented.
 - rep_transformer varies widely by seed (0.608-0.940). Only 3 test subjects, so CIs are coarse.
 - pose ablation: RTMPose and YOLO have no adapters; pretraining not run; /ws/frames not implemented.
@@ -256,12 +269,12 @@ fastapi 0.162.0, pydantic-settings 2.16.2, mlflow 3.17.2, lightgbm 4.7.0.
 - Real MediaPipe on the rendered mannequin raised ELBOW_BEND (interior < 160°) near the overhead peak
   on all 3 reps, although the ground-truth arm is straight. This may be a cartoon artefact. Validate
   the threshold on real recordings before trusting it.
-- No MediaPipe model downloaded yet. The real-model test is skipped. To enable:
-  `uv run rehabpose extract <video> --model full --download-model`, or download the URL printed by
-  the CLI into data/models/.
-- lightgbm on macOS may need `libomp` from Homebrew at import time (not tested yet, phase 7). Ask
-  before running `brew install libomp`.
-- ffmpeg is not installed (needed only for the optional GIF script in phase 10). Ask before installing.
+- ffmpeg is not installed, so there is no GIF script or demo GIF yet. Ask before installing.
+- Not confirmed at the source: licences of UI-PRMD, KIMORE, the Toronto Rehab Stroke Pose Kaggle page and
+  MediaPipe's `.task` model files; UCOPhyRehab++'s "5-point" scale and rep start/end frames.
+- REHAB24-6 is CC BY-NC 4.0, so it can't be used for commercial work without asking its authors.
+- The WebSocket doesn't check Origin and the API has no login. Fine on localhost, but a risk on a LAN.
+- Phone flow, Docker, GitHub CI, Linux and live browser FPS remain unverified.
 
 ## Resume
 ```bash

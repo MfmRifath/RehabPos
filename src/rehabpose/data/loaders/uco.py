@@ -11,15 +11,16 @@ from rehabpose.data.loaders.base import DatasetInfo, VideoLoader
 
 
 class UcoLoader(VideoLoader):
-    """UCO RGB videos (5 views, 27 subjects, 16 exercises per the spec)."""
+    """UCO RGB videos (5 views, 27 subjects, 8 exercises per the Sensors 2023 paper)."""
 
     info = DatasetInfo(
         name="uco",
         title="UCO Physical Rehabilitation / UCOPhyRehab++",
-        license="Available on request from the authors; terms set by them (verify)",
+        license="UCO videos: on request, authors' terms. UCOPhyRehab++ on Zenodo: CC BY 4.0",
         citation=(
-            "UCO Physical Rehabilitation dataset, Sensors (2023); UCOPhyRehab++, "
-            "Scientific Data (2026). Use the full citations from the dataset pages."
+            "Aguilar-Ortega et al., Sensors 23(21):8862 (2023), doi:10.3390/s23218862; "
+            "Aguilar-Ortega et al., Scientific Data 13:1035 (2026), "
+            "doi:10.1038/s41597-026-07362-5"
         ),
         url="https://github.com/AVAuco/ucophyrehab",
         access="on_request",

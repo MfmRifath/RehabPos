@@ -15,6 +15,8 @@ from rehabpose.settings import get_settings
 
 log = logging.getLogger("rehabpose")
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
 app = typer.Typer(
     name="rehabpose",
     help="RehabPose: camera-only rehabilitation exercise coach (research prototype).",
@@ -151,21 +153,50 @@ def serve(
     host: Annotated[str | None, typer.Option(help="Bind address (default from settings).")] = None,
     port: Annotated[int | None, typer.Option(help="Port (default from settings).")] = None,
     reload: Annotated[bool, typer.Option(help="Auto-reload on code changes (dev).")] = False,
+    ssl_certfile: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, help="TLS certificate (PEM).")
+    ] = None,
+    ssl_keyfile: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, help="TLS private key (PEM).")
+    ] = None,
 ) -> None:
-    """Run the FastAPI server (REST + WebSocket)."""
+    """Run the FastAPI server (REST + WebSocket); phones need TLS to use the camera."""
     import uvicorn
 
+    if (ssl_certfile is None) != (ssl_keyfile is None):
+        raise typer.BadParameter("--ssl-certfile and --ssl-keyfile must be given together")
+    certfile = str(ssl_certfile) if ssl_certfile else None
+    keyfile = str(ssl_keyfile) if ssl_keyfile else None
     settings = get_settings()
     host, port = host or settings.host, port or settings.port
-    log.info("RehabPose API on http://%s:%d (docs at /docs)", host, port)
+    log.info(
+        "RehabPose API on %s://%s:%d (docs at /docs)", "https" if certfile else "http", host, port
+    )
+    if host not in LOOPBACK_HOSTS:
+        log.warning(
+            "The API has no login: anyone who can reach %s:%d can read its data", host, port
+        )
     if reload:
         uvicorn.run(
-            "rehabpose.api.main:create_app", host=host, port=port, reload=True, factory=True
+            "rehabpose.api.main:create_app",
+            host=host,
+            port=port,
+            reload=True,
+            factory=True,
+            ssl_certfile=certfile,
+            ssl_keyfile=keyfile,
         )
         return
     from rehabpose.api.main import create_app
 
-    uvicorn.run(create_app(settings), host=host, port=port, log_level=settings.log_level.lower())
+    uvicorn.run(
+        create_app(settings),
+        host=host,
+        port=port,
+        log_level=settings.log_level.lower(),
+        ssl_certfile=certfile,
+        ssl_keyfile=keyfile,
+    )
 
 
 data_app = typer.Typer(help="Dataset utilities (list, info, stats, extract-all, splits, schema).")

@@ -19,7 +19,7 @@ class DibUpperLoader(VideoLoader):
         name="dib_upper",
         title="Upper-limb stroke rehabilitation exercise video dataset (Data in Brief 2026)",
         license="CC BY 4.0",
-        citation="Data in Brief (2026), Mendeley Data doi:10.17632/49h9dcwx5v.1",
+        citation="Nandana et al., Data in Brief 66:112819 (2026), doi:10.1016/j.dib.2026.112819",
         url="https://data.mendeley.com/datasets/49h9dcwx5v/1",
         access="open",
         instructions=(

@@ -9,7 +9,13 @@ from rehabpose import DISCLAIMER
 
 ROOT = Path(__file__).resolve().parents[2]
 MD_FILES = sorted(
-    [*ROOT.glob("docs/**/*.md"), ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "PROGRESS.md"]
+    [
+        *ROOT.glob("docs/**/*.md"),
+        ROOT / "README.md",
+        ROOT / "CLAUDE.md",
+        ROOT / "PROGRESS.md",
+        ROOT / "CONTRIBUTING.md",
+    ]
 )
 REQUIRED_DOCS = [
     "01_overview.md",
@@ -23,6 +29,7 @@ REQUIRED_DOCS = [
     "09_ethics_privacy.md",
     "10_model_card.md",
     "11_datasheet.md",
+    "portfolio.md",
     "adr/0001-landmarks-over-websocket.md",
 ]
 MERMAID_TYPES = ("flowchart", "graph", "sequenceDiagram", "erDiagram", "stateDiagram-v2")

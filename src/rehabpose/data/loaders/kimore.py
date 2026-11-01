@@ -20,8 +20,10 @@ class KimoreLoader(PatternLoader):
     info = DatasetInfo(
         name="kimore",
         title="KIMORE",
-        license="EULA (check before use; never redistribute)",
-        citation="KIMORE dataset (use the citation given with the EULA)",
+        license="Per the spec: EULA, not confirmed (check before use; never redistribute)",
+        citation=(
+            "Capecci et al., IEEE TNSRE 27(7):1436-1448 (2019), doi:10.1109/TNSRE.2019.2923060"
+        ),
         url="(provided with the EULA by the dataset authors)",
         access="eula",
         instructions="Obtain KIMORE under its EULA and place it under data/raw/kimore/.",

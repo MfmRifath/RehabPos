@@ -15,8 +15,8 @@ class Rehab246Loader(VideoLoader):
     info = DatasetInfo(
         name="rehab24_6",
         title="REHAB24-6",
-        license="Verify on Zenodo record 13305826",
-        citation="REHAB24-6 dataset, Zenodo record 13305826 (use the citation given there)",
+        license="CC BY-NC 4.0: non-commercial research only (Zenodo record 13305826)",
+        citation="Cernek, Sedmidubsky, Budikova, SISAP 2024, doi:10.1007/978-3-031-75823-2_2",
         url="https://zenodo.org/records/13305826",
         access="open",
         instructions=(

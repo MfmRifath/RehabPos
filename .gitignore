@@ -26,6 +26,7 @@
 !/reports/samples/
 !/reports/benchmarks.md
 !/reports/benchmarks.json
+!/reports/results_summary.json
 
 # --- Python ---
 .venv/

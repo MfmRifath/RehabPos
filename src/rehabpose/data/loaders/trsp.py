@@ -30,7 +30,7 @@ class TrspLoader(PatternLoader):
         name="trsp",
         title="Toronto Rehab Stroke Pose",
         license="Kaggle dataset terms (check before use)",
-        citation="Toronto Rehab Stroke Pose dataset (use the citation on the Kaggle page)",
+        citation="Dolatabadi et al., PervasiveHealth 2017, doi:10.1145/3154862.3154925",
         url="https://www.kaggle.com/datasets/derekdb/toronto-robot-stroke-posture-dataset",
         access="kaggle",
         instructions=(
