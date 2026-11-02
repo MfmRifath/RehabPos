@@ -30,7 +30,7 @@ otherwise.
   LightGBM consistently beat.
 
 **Engineering quality and responsible practice**
-- Wrote 499 Python and 34 frontend tests, with over 98 % coverage of the core engine, plus a check that
+- Wrote 499 Python and 64 frontend tests, with over 98 % coverage of the core engine, plus a check that
   fails if README or model card metrics stop matching the measured results file.
 - Wrote a model card and datasheet stating what hasn't been measured, including accuracy on real people, and
   checked each dataset licence against its source, which caught a non-commercial restriction.

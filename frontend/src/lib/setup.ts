@@ -86,3 +86,39 @@ export function setupReport(lm: Pt[] | null, w: number, h: number, expected: Vie
   const distance = distanceHint(lm);
   return { detected: true, personVisible, missing, view, viewOk, distance, ready: personVisible && viewOk && distance === "ok" };
 }
+
+export type CheckState = "pending" | "ok" | "problem";
+export interface SetupCheck {
+  id: "person" | "joints" | "view" | "distance";
+  state: CheckState;
+  text: string;
+}
+
+/**
+ * The setup report as a checklist. Until a person is detected the other checks stay "pending":
+ * they have nothing to measure yet, so they are neither passed nor failed.
+ */
+export function setupChecklist(report: SetupReport | null, expected: View, side: Side): SetupCheck[] {
+  const arm = side === "R" ? "right" : "left";
+  const viewText = expected === "sagittal" ? `Stand side-on with your ${arm} arm toward the camera` : "Face the camera";
+  const person: SetupCheck = report?.detected
+    ? { id: "person", state: "ok", text: "Person detected" }
+    : { id: "person", state: report ? "problem" : "pending", text: report ? "Step into the camera's view" : "Looking for you" };
+  if (!report?.detected) {
+    return [
+      person,
+      { id: "joints", state: "pending", text: `Your ${arm} arm and the joints it needs are visible` },
+      { id: "view", state: "pending", text: viewText },
+      { id: "distance", state: "pending", text: "Stand about 2–3 m from the camera" },
+    ];
+  }
+  const distanceText = { ok: "Distance looks good", too_close: "Step back a little", too_far: "Come a little closer" }[report.distance];
+  return [
+    person,
+    report.personVisible
+      ? { id: "joints", state: "ok", text: `Your ${arm} arm and the joints it needs are visible` }
+      : { id: "joints", state: "problem", text: `Not clearly visible: ${report.missing.join(", ")}` },
+    { id: "view", state: report.viewOk ? "ok" : "problem", text: `${viewText}${report.view ? ` (detected: ${report.view})` : ""}` },
+    { id: "distance", state: report.distance === "ok" ? "ok" : "problem", text: distanceText },
+  ];
+}

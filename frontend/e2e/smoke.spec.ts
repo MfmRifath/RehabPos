@@ -122,18 +122,27 @@ test("progress shows server badges; delete asks first and resets the user", asyn
   await page.goto("/#/progress");
   await page.getByRole("button", { name: "I understand" }).click();
   await expect(page.getByTestId("overall")).toContainText("60 reps in 2 sessions");
-  await expect(page.getByText("🏅 First 50 reps")).toBeVisible();
-  await expect(page.getByText("○ 7-day streak")).toBeVisible();
+  // Earned state is spelled out, never colour or icon alone.
+  await expect(page.getByRole("listitem").filter({ hasText: "First 50 reps" })).toContainText("Earned");
+  await expect(page.getByRole("listitem").filter({ hasText: "7-day streak" })).toContainText("Locked");
   await expect(page.getByText("best session 141° on 2026-03-10")).toBeVisible();
   expect(urls[0]).toContain("tz_offset_minutes=");
 
-  page.once("dialog", (d) => d.dismiss());
   await page.getByTestId("delete-data").click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByTestId("delete-cancel").click();
+  await expect(page.getByRole("alertdialog")).toBeHidden();
   expect(deletes).toEqual([]); // cancelled: nothing deleted
 
-  const before = await page.evaluate(() => localStorage.getItem("rehabpose.profile.v1"));
-  page.once("dialog", (d) => d.accept());
   await page.getByTestId("delete-data").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog")).toBeHidden();
+  expect(deletes).toEqual([]); // Esc is a cancel too
+
+  const before = await page.evaluate(() => localStorage.getItem("rehabpose.profile.v1"));
+  await page.getByTestId("delete-data").click();
+  await page.getByTestId("delete-confirm").click();
   await expect.poll(() => deletes.length).toBe(1);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("rehabpose.profile.v1"))).not.toBe(before);
+  await expect(page.getByText("Deleted 2 sessions and 60 reps.")).toBeVisible();
 });

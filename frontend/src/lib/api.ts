@@ -82,6 +82,7 @@ export interface Progress {
 }
 
 export interface Report {
+  session?: { exercise_id: string; exercise_name: string };
   summary: { rep_count: number; mean_rom: number | null; best_rom: number | null; quality_score: number | null; labels: Record<string, number> };
   target: { rom: number; unit: string };
   reps: (Omit<RepOut, "peak_angle" | "t_peak"> & { peak: number })[];

@@ -1,0 +1,116 @@
+/* Design tokens: "calm clinical". Text pairs meet WCAG AA on every surface they sit on. */
+:root {
+  /* Surfaces and ink */
+  --page: #f6f4ef;
+  --surface: #fffefb;
+  --surface-2: #ecebe4;
+  --ink: #1c2826;
+  --ink-2: #43514e;
+  --ink-muted: #5f6c69;
+  --line: #dcd9cf;
+  --line-strong: #8d9692; /* form control borders: 3:1 against the surface */
+
+  /* Accent */
+  --accent: #0f6b66;
+  --accent-hover: #0b5551;
+  --on-accent: #ffffff;
+  --accent-soft: #dcefec;
+  --accent-ink: #0b5551;
+
+  /* Status: never used alone, always with an icon and a label */
+  --good: #1a7f4b;
+  --good-soft: #dff2e6;
+  --warning: #8f5500;
+  --warning-soft: #f9ecd3;
+  --critical: #b93a32;
+  --critical-soft: #f9e3e0;
+  --on-critical: #ffffff;
+
+  /* Charts (validated with the dataviz palette script against --surface) */
+  --series-1: #00897a;
+
+  /* Camera stage: the same in both themes, because it always sits on video */
+  --stage-bg: #0a1110;
+  --stage-ink: #ffffff;
+  --stage-ink-2: #d5dedb;
+  --stage-glass: rgba(10, 17, 16, 0.72);
+  --stage-line: rgba(255, 255, 255, 0.22);
+  --stage-accent: #4fe0cf;
+  --stage-on-accent: #06211e;
+  --cue-info: #1f6f8b;
+  --cue-warn: #f5b544;
+  --cue-error: #b93a32;
+
+  /* Type scale */
+  --font: "Nunito Variable", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 1.625rem;
+  --text-2xl: clamp(1.875rem, 1.5rem + 1.6vw, 2.625rem);
+
+  /* 4px spacing scale */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+
+  /* Shape and depth */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(28, 40, 38, 0.06);
+  --shadow: 0 1px 2px rgba(28, 40, 38, 0.05), 0 8px 24px rgba(28, 40, 38, 0.07);
+  --shadow-lg: 0 24px 64px rgba(28, 40, 38, 0.22);
+  --focus: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
+
+  --tap: 44px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  color-scheme: light;
+  font-family: var(--font);
+  background: var(--page);
+  color: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0f1615;
+    --surface: #172120;
+    --surface-2: #212d2b;
+    --ink: #edf2f0;
+    --ink-2: #c0cbc8;
+    --ink-muted: #9daba8;
+    --line: #2e3b39;
+    --line-strong: #667471;
+
+    --accent: #4fb8ae;
+    --accent-hover: #6ccbc2;
+    --on-accent: #0b1413;
+    --accent-soft: #17332f;
+    --accent-ink: #7fd6cd;
+
+    --good: #5ccf8f;
+    --good-soft: #15342a;
+    --warning: #eeb350;
+    --warning-soft: #3a2c13;
+    --critical: #f0897f;
+    --critical-soft: #3c1f1c;
+    --on-critical: #1f0d0b;
+
+    --series-1: #22a699;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+    color-scheme: dark;
+  }
+}

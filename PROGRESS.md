@@ -16,6 +16,19 @@
 | 10 | Final docs | done | phase-10 |
 | 11 | Core ML / iOS (optional, only on request) | not requested | |
 
+## UI redesign tasks (owner request, after phase 10; not a numbered phase)
+- [x] "Calm clinical" design system: tokens, self-hosted Nunito, lucide icons, light and dark from the system
+- [x] all screens redone; Live is full-bleed and sized to read from 2-3 m; loading, empty and error states
+- [x] fixes: FR-20 deep link no longer starts a session behind the disclaimer; stop-on-pain on the setup
+      screen (docs/09 §3); `aria-live` only on the rep count; focus-trapped dialogs; labelled upload fields;
+      progress target line stays on the chart; camera stream released if the page is left during startup
+- [x] vitest 64 (`npm test`), Playwright 20 passed + 1 skipped without a backend (`npm run test:e2e`), real-backend
+      spec passed on a throwaway database, pytest 499 passed
+- [x] axe scan of every screen in light and dark: no serious or critical issues (`e2e/a11y.spec.ts`; axe cannot
+      judge text over live video, so Live contrast on a real camera image is unverified)
+- [ ] owner: check Live with a real webcam (skeleton overlay colours, reading distance). The fake camera has no
+      person in it, so neither has been seen. This extends the phase 6 manual check; do not claim it.
+
 ## Phase 0 tasks
 - [x] git init (branch main), uv package `rehabpose` (src layout, uv_build, Python 3.12)
 - [x] runtime deps, extras `[rtm]` `[ablation]` `[coreml]`, dev group, uv.lock

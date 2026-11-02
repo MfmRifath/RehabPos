@@ -1,12 +1,15 @@
-import type { PoseLandmarker } from "@mediapipe/tasks-vision";
+import { CircleAlert, EyeOff, Gauge, LoaderCircle, Pause, Play, Square, Volume2, VolumeX, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CueBanner } from "../components/CueBanner";
 import { Hud, type HudStats } from "../components/Hud";
+import { RepCounter } from "../components/RepCounter";
+import { RomGauge } from "../components/RomGauge";
 import { api } from "../lib/api";
+import { describeApiError, describeCameraError } from "../lib/errors";
+import { formatMeasure, REP_LABELS } from "../lib/format";
 import { CueSpeaker } from "../lib/speech";
-import { startCamera, stopCamera } from "../pose/camera";
-import { drawOverlay } from "../pose/draw";
-import { getLandmarker, type Delegate } from "../pose/landmarker";
+import { drawOverlay, OVERLAY_COLORS } from "../pose/draw";
+import { useCameraPose } from "../pose/useCameraPose";
 import { usePoseLoop, type FrameResult } from "../pose/usePoseLoop";
 import { navigate } from "../router";
 import { useApp } from "../store/app";
@@ -14,12 +17,18 @@ import { useExercises } from "../useExercises";
 import { SessionSocket, sessionUrl, type SocketStatus } from "../ws/client";
 import { landmarksMessage, type Phase } from "../ws/protocol";
 
-const PHASES: Phase[] = ["rest", "ascending", "peak", "descending"];
+const PHASES: { id: Phase; label: string }[] = [
+  { id: "rest", label: "Rest" },
+  { id: "ascending", label: "Moving" },
+  { id: "peak", label: "Peak" },
+  { id: "descending", label: "Returning" },
+];
 
-function cssVar(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
+const SOCKET_TEXT: Partial<Record<SocketStatus, string>> = {
+  connecting: "Connecting…",
+  reconnecting: "Connection lost. Reconnecting…",
+  closed: "Disconnected. Reps aren't being counted.",
+};
 
 export function Live() {
   const sel = useApp((s) => s.selection);
@@ -27,20 +36,20 @@ export function Live() {
   const live = useApp((s) => s.live);
   const muted = useApp((s) => s.muted);
   const showHud = useApp((s) => s.showHud);
-  const { exercises } = useExercises();
+  const { exercises, error: exercisesError, reload } = useExercises();
   const ex = exercises.find((e) => e.id === sel.exerciseId);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<SessionSocket | null>(null);
   const speaker = useRef(new CueSpeaker());
   const frameIdx = useRef(0);
-  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
-  const [landmarker, setLandmarker] = useState<PoseLandmarker | null>(null);
-  const [delegate, setDelegate] = useState<Delegate | "–">("–");
+  const { videoRef, video, landmarker, delegate, startup, error: cameraError, retry: retryCamera } = useCameraPose(sel.model);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>("connecting");
   const [status, setStatus] = useState("Creating session…");
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
   const [running, setRunning] = useState(true);
+  const [personInView, setPersonInView] = useState(true);
   const [stats, setStats] = useState({ fps: 0, inferMs: 0 });
   const lastStatsAt = useRef(0);
 
@@ -67,44 +76,22 @@ export function Live() {
         socketRef.current = socket;
         setStatus(`Session ${s.id}`);
       })
-      .catch((err: unknown) => setStatus(`Cannot create session: ${String(err)}`));
+      .catch((err: unknown) => {
+        if (!cancelled) setSessionError(describeApiError(err));
+      });
     return () => {
       cancelled = true;
       socket?.close();
       socketRef.current = null;
     };
-  }, [ex, userId, sel.side, sel.view]);
+  }, [ex, userId, sel.side, sel.view, sessionAttempt]);
 
-  // 2) camera + pose model
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let lm: PoseLandmarker | null;
-    let cancelled = false;
-    (async () => {
-      try {
-        const v = videoRef.current as HTMLVideoElement;
-        stream = await startCamera(v);
-        setVideo(v);
-        const created = await getLandmarker(sel.model);
-        if (cancelled) return;
-        lm = created.landmarker;
-        setLandmarker(lm);
-        setDelegate(created.delegate);
-      } catch (err) {
-        setStatus(`Camera or model error: ${String(err)}`);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      stopCamera(stream);
-    };
-  }, [sel.model]);
-
-  // 3) per-frame: send landmarks, draw overlay
+  // 2) per-frame: send landmarks, draw overlay
   const onFrame = useCallback(
     (r: FrameResult) => {
       const lm = r.result.landmarks[0] ?? null;
       const world = r.result.worldLandmarks[0] ?? null;
+      setPersonInView(lm !== null);
       const sid = useApp.getState().live.sid;
       if (lm && world && sid && socketRef.current) {
         socketRef.current.sendLandmarks(
@@ -123,7 +110,7 @@ export function Live() {
           target: ex.target,
           unit: ex.unit,
           mirror: true,
-          colors: { bone: "rgba(255,255,255,0.85)", active: cssVar("--warning", "#fab219"), band: "rgba(12,163,12,0.55)", text: "#fff" },
+          colors: OVERLAY_COLORS,
         });
       }
       const now = performance.now();
@@ -138,16 +125,19 @@ export function Live() {
 
   const toggleRun = useCallback(() => {
     const next = !running;
-    socketRef.current?.sendControl(next ? "start_set" : "pause");
-    setRunning(next);
+    // Keep the button in step with the server: nothing changes if the message could not be sent.
+    if (socketRef.current?.sendControl(next ? "start_set" : "pause")) setRunning(next);
   }, [running]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.tagName === "INPUT") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       if (e.key === " ") {
+        if (tag === "BUTTON" || tag === "A") return; // Space already activates the focused control.
         e.preventDefault();
-        toggleRun();
+        if (!e.repeat) toggleRun();
       } else if (e.key === "m") useApp.getState().toggleMute();
       else if (e.key === "h") useApp.getState().toggleHud();
     };
@@ -164,52 +154,114 @@ export function Live() {
     } else navigate("/");
   };
 
-  const hud: HudStats = { fps: stats.fps, inferMs: stats.inferMs, rttMs: live.rttMs, serverMs: live.serverMs, dropped: live.dropped, delegate, socket: socketStatus };
-  const unit = ex?.unit === "deg" ? "°" : "";
-  const primary = ex ? live.angles[ex.primary_angle] : null;
+  const hud: HudStats = { fps: stats.fps, inferMs: stats.inferMs, rttMs: live.rttMs, serverMs: live.serverMs, dropped: live.dropped, delegate: delegate ?? "–", socket: socketStatus };
+  const primary = ex ? (live.angles[ex.primary_angle] ?? null) : null;
+  const lastRep = live.reps.at(-1);
+  const camera = startup === "error" ? describeCameraError(cameraError) : null;
+  const socketText = SOCKET_TEXT[socketStatus];
+  const blocked = camera ?? (sessionError ? { title: "The session didn't start", detail: sessionError } : exercisesError ? { title: "Exercises didn't load", detail: exercisesError } : null);
+  const retryBlocked = camera
+    ? retryCamera
+    : sessionError
+      ? () => {
+          setSessionError(null);
+          setSessionAttempt((a) => a + 1);
+        }
+      : reload;
 
   return (
-    <section>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: "8px 0" }}>
-          {ex?.name ?? "…"} <span className="muted">({sel.side === "R" ? "right" : "left"} arm)</span>
-        </h1>
-        <div className="row">
-          <button onClick={toggleRun} data-testid="toggle-run">{running ? "Pause (space)" : "Start set (space)"}</button>
-          <button onClick={() => useApp.getState().toggleMute()} aria-pressed={muted}>{muted ? "Unmute (m)" : "Mute (m)"}</button>
-          <button onClick={() => useApp.getState().toggleHud()} aria-pressed={showHud}>HUD (h)</button>
-          <button className="primary" onClick={end} data-testid="end">End session</button>
-        </div>
-      </div>
-      <p className="muted" data-testid="status">{status}{live.error ? ` · ${live.error}` : ""}</p>
-      <div className="stage">
+    <main className="live" tabIndex={-1}>
+      <div className="live-stage">
         <video ref={videoRef} className="mirror" />
         <canvas ref={canvasRef} />
-        <div className="counter" aria-live="polite">
-          <div className="big" data-testid="rep-count">{live.repCount}</div>
-          <div>reps · {primary != null ? `${Math.round(primary)}${unit}` : "–"} / target {ex?.target ?? "–"}{unit}</div>
-          <div>{live.game.points} pts · combo {live.game.combo}</div>
-        </div>
-        {showHud && <Hud s={hud} />}
-        <CueBanner cue={live.cue} />
+        {blocked ? (
+          <div className="stage-overlay" role="alert">
+            <CircleAlert size={44} aria-hidden="true" />
+            <h2>{blocked.title}</h2>
+            <p>{blocked.detail}</p>
+            <div className="btn-row">
+              <button className="btn" onClick={retryBlocked}>Try again</button>
+              <a className="btn btn-ghost" href="#/">Back to exercises</a>
+            </div>
+          </div>
+        ) : startup !== "ready" ? (
+          <div className="stage-overlay" role="status">
+            <LoaderCircle size={44} className="spin" aria-hidden="true" />
+            <p>{startup === "camera" ? "Starting camera…" : "Loading pose model…"}</p>
+          </div>
+        ) : null}
       </div>
-      <div className="row" style={{ marginTop: 12 }}>
-        <div className="phase" aria-label="Movement phase">
-          {PHASES.map((p) => (
-            <span key={p} className={live.phase === p ? "on" : ""}>{p}</span>
+      {!running && !blocked && (
+        <div className="paused" role="status">
+          <strong>Paused</strong>
+          <span>Press space to continue</span>
+        </div>
+      )}
+      <div className="live-ui">
+        <header className="live-top">
+          <div>
+            <RepCounter count={live.repCount} points={live.game.points} combo={live.game.combo} gain={live.game.lastGain} gainKey={live.reps.length} />
+            {lastRep && ex && (
+              <p className="rep-last">
+                Last: {formatMeasure(lastRep.peak_angle, ex.unit)}, {lastRep.duration_s.toFixed(1)} s, {REP_LABELS[lastRep.label]}
+              </p>
+            )}
+          </div>
+          <div className="live-title">
+            <h1>{ex?.name ?? "…"}</h1>
+            <p>{sel.side === "R" ? "Right" : "Left"} arm</p>
+            <p className="live-status" data-testid="status">{status}</p>
+          </div>
+          <div className="live-right">
+            {ex && <RomGauge value={primary} target={ex.target} unit={ex.unit} />}
+            {showHud && <Hud s={hud} />}
+          </div>
+        </header>
+        <div className="live-pills" aria-live="polite">
+          {socketText && !blocked && (
+            <span className="pill pill-alert"><WifiOff size={20} aria-hidden="true" />{socketText}</span>
+          )}
+          {live.error && <span className="pill pill-alert"><CircleAlert size={20} aria-hidden="true" />{live.error}</span>}
+          {landmarker && !personInView && running && (
+            <span className="pill pill-alert"><EyeOff size={20} aria-hidden="true" />Can't see you. Step into the camera's view.</span>
+          )}
+          {!live.calibrated && live.sid && socketStatus === "open" && <span className="pill">Calibrating: hold still for a moment</span>}
+          {live.hints.map((h) => (
+            <span key={h} className="pill">{h}</span>
           ))}
         </div>
-        {!live.calibrated && <span className="tag">calibrating: hold still for a moment</span>}
-        {live.hints.map((h) => (
-          <span key={h} className="tag">{h}</span>
-        ))}
+        <div className="live-bottom">
+          <CueBanner cue={live.cue} />
+          <ol className="phase-strip" aria-label="Movement phase">
+            {PHASES.map((p) => (
+              <li key={p.id} aria-current={live.phase === p.id ? "step" : undefined}>{p.label}</li>
+            ))}
+          </ol>
+          <div className="live-controls">
+            <div className="live-controls-group">
+              <button className="ctrl" onClick={toggleRun} data-testid="toggle-run">
+                {running ? <Pause size={20} aria-hidden="true" /> : <Play size={20} aria-hidden="true" />}
+                <span className="ctrl-text">{running ? "Pause" : "Start set"}</span>{" "}
+                <kbd>(space)</kbd>
+              </button>
+              <button className="ctrl" onClick={() => useApp.getState().toggleMute()}>
+                {muted ? <VolumeX size={20} aria-hidden="true" /> : <Volume2 size={20} aria-hidden="true" />}
+                <span className="ctrl-text">{muted ? "Unmute" : "Mute"}</span>{" "}
+                <kbd>(m)</kbd>
+              </button>
+              <button className="ctrl" onClick={() => useApp.getState().toggleHud()} aria-pressed={showHud}>
+                <Gauge size={20} aria-hidden="true" />
+                <span className="ctrl-text">Stats</span>{" "}
+                <kbd>(h)</kbd>
+              </button>
+            </div>
+            <button className="ctrl ctrl-end" onClick={end} data-testid="end">
+              <Square size={18} aria-hidden="true" />
+              <span className="ctrl-text">End session</span>
+            </button>
+          </div>
+        </div>
       </div>
-      {live.reps.length > 0 && (
-        <p className="muted">
-          Last rep: {live.reps.at(-1)?.peak_angle.toFixed(0)}{unit}, {live.reps.at(-1)?.duration_s.toFixed(1)} s,{" "}
-          {live.reps.at(-1)?.label.replace("_", " ")} {live.game.lastGain > 0 && `(+${live.game.lastGain} pts)`}
-        </p>
-      )}
-    </section>
+    </main>
   );
 }

@@ -25,6 +25,14 @@ export interface OverlayOptions {
   visibilityThreshold?: number;
 }
 
+/** Overlay colours; the active colour matches --stage-accent. The stage is dark in both themes. */
+export const OVERLAY_COLORS: OverlayOptions["colors"] = {
+  bone: "rgba(255,255,255,0.85)",
+  active: "#4fe0cf",
+  band: "rgba(79,224,207,0.45)",
+  text: "#fff",
+};
+
 export function drawOverlay(ctx: CanvasRenderingContext2D, lm: P[] | null, w: number, h: number, o: OverlayOptions): void {
   ctx.clearRect(0, 0, w, h);
   if (!lm) return;
@@ -87,12 +95,14 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, lm: P[] | null, w: nu
   ctx.stroke();
 
   const label = `${Math.round(o.angle)}°`;
-  ctx.font = "600 20px system-ui, sans-serif";
+  // Canvas pixels scale with the stage, so the label is sized from the frame height.
+  const size = Math.max(20, Math.round(h * 0.05));
+  ctx.font = `800 ${size}px "Nunito Variable", system-ui, sans-serif`;
   const tx = vx + r + 8;
   const ty = vy - r * 0.6;
   const m = ctx.measureText(label);
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  ctx.fillRect(tx - 4, ty - 18, m.width + 8, 24);
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(tx - size * 0.3, ty - size * 0.95, m.width + size * 0.6, size * 1.25);
   ctx.fillStyle = o.colors.text;
   ctx.fillText(label, tx, ty);
 }
